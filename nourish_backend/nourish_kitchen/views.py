@@ -1,127 +1,132 @@
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly, AllowAny
 from django.db.models import Sum
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from .models import User, Recipe, BlogPost, Comment, NewsletterSubscription
 from .serializers import (
-    UserSerializer, RecipeSerializer, BlogPostSerializer, 
+    UserSerializer, RegisterSerializer, RecipeSerializer, BlogPostSerializer, 
     CommentSerializer, NewsletterSubscriptionSerializer
 )
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [permissions.IsAdminUser]
+    def get_permissions(self):
+        if self.action in ['login', 'register']:
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    def register(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'user': UserSerializer(user).data,
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def me(self, request):
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
 
 class RecipeViewSet(viewsets.ModelViewSet):
-    queryset = Recipe.objects.all()
+    queryset = Recipe.objects.all().prefetch_related('liked_by', 'ingredients')
     serializer_class = RecipeSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-    filter_backends = [filters.SearchFilter]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['categories']
     search_fields = ['title', 'story', 'ingredients__name']
 
-    def get_queryset(self):
-        queryset = Recipe.objects.all()
-        category = self.request.query_params.get('cat')
-        if category:
-            queryset = queryset.filter(categories__contains=category)
-        return queryset
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
     @action(detail=True, methods=['post'])
     def restore(self, request, pk=None):
-        recipe = Recipe.all_objects.get(pk=pk)
+        # Assumes a custom Manager 'all_objects' exists for soft-delete logic
+        recipe = Recipe.all_objects.filter(pk=pk, is_deleted=True).first()
+        if not recipe:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
         recipe.restore()
         return Response(self.get_serializer(recipe).data)
 
-    @action(detail=True, methods=['delete'])
-    def permanent(self, request, pk=None):
-        recipe = Recipe.all_objects.get(pk=pk)
-        recipe.delete(permanent=True)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=True, methods=['patch'], url_path='toggle-like')
+    @action(detail=True, methods=['post'], url_path='toggle-like')
     def toggle_like(self, request, pk=None):
         recipe = self.get_object()
-        user_id = request.data.get('userId')
-        if not user_id:
-            return Response({'error': 'userId required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        user = User.objects.get(id=user_id)
-        if recipe.liked_by.filter(id=user.id).exists():
-            recipe.liked_by.remove(user)
+        # Securely use request.user instead of passing userId in body
+        if recipe.liked_by.filter(id=request.user.id).exists():
+            recipe.liked_by.remove(request.user)
         else:
-            recipe.liked_by.add(user)
-        
-        return Response(self.get_serializer(recipe).data)
+            recipe.liked_by.add(request.user)
+        return Response({'status': 'toggled', 'likes_count': recipe.liked_by.count()})
 
 class BlogPostViewSet(viewsets.ModelViewSet):
-    queryset = BlogPost.objects.all()
+    queryset = BlogPost.objects.all().select_related('author')
     serializer_class = BlogPostSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    @action(detail=True, methods=['post'])
-    def restore(self, request, pk=None):
-        blog = BlogPost.all_objects.get(pk=pk)
-        blog.restore()
-        return Response(self.get_serializer(blog).data)
-
-    @action(detail=True, methods=['delete'])
-    def permanent(self, request, pk=None):
-        blog = BlogPost.all_objects.get(pk=pk)
-        blog.delete(permanent=True)
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-    @action(detail=True, methods=['patch'], url_path='toggle-bookmark')
+    @action(detail=True, methods=['post'], url_path='toggle-bookmark')
     def toggle_bookmark(self, request, pk=None):
         blog = self.get_object()
-        user_id = request.data.get('userId')
-        if not user_id:
-            return Response({'error': 'userId required'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        user = User.objects.get(id=user_id)
-        if blog.bookmarked_by.filter(id=user.id).exists():
-            blog.bookmarked_by.remove(user)
+        if blog.bookmarked_by.filter(id=request.user.id).exists():
+            blog.bookmarked_by.remove(request.user)
         else:
-            blog.bookmarked_by.add(user)
-        
-        return Response(self.get_serializer(blog).data)
+            blog.bookmarked_by.add(request.user)
+        return Response({'status': 'toggled'})
 
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
-    permission_classes = [AllowAny]
+    
+    def get_permissions(self):
+        if self.action in ['approve', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
 
     @action(detail=True, methods=['patch'])
     def approve(self, request, pk=None):
         comment = self.get_object()
         comment.is_approved = True
         comment.save()
-        return Response(self.get_serializer(comment).data)
+        return Response({'status': 'approved'})
 
 class StatsViewSet(viewsets.ViewSet):
-    permission_classes = [AllowAny]
+    permission_classes = [permissions.IsAdminUser]
 
     def list(self, request):
-        recipes = Recipe.objects.all()
-        blogs = BlogPost.objects.all()
-        comments = Comment.objects.all()
-        users = User.objects.all()
-        subs = NewsletterSubscription.objects.all()
-
         data = {
-            'totalRecipes': recipes.count(),
-            'totalViews': recipes.aggregate(Sum('views'))['views__sum'] or 0,
-            'unreadComments': comments.filter(is_read=False).count(),
-            'totalComments': comments.count(),
-            'totalBlogs': blogs.count(),
-            'totalUsers': users.count(),
-            'totalSubscribers': subs.count()
+            'totalRecipes': Recipe.objects.count(),
+            'totalViews': Recipe.objects.aggregate(Sum('views'))['views__sum'] or 0,
+            'unreadComments': Comment.objects.filter(is_read=False).count(),
+            'totalUsers': User.objects.count(),
+            'totalSubscribers': NewsletterSubscription.objects.count()
         }
         return Response(data)
 
+class NewsletterViewSet(viewsets.ModelViewSet):
+    queryset = NewsletterSubscription.objects.all()
+    serializer_class = NewsletterSubscriptionSerializer
+    
+    def get_permissions(self):
+        if self.action == 'create':
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+    @action(detail=False, methods=['post'])
+    def send_broadcast(self, request):
+        # Implementation for Celery task would go here
+        return Response({'message': 'Newsletter queued for delivery'})
+
 class ArchiveViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def list(self, request):
         data = {
@@ -129,28 +134,3 @@ class ArchiveViewSet(viewsets.ViewSet):
             'blogs': BlogPostSerializer(BlogPost.all_objects.filter(is_deleted=True), many=True).data
         }
         return Response(data)
-
-class NewsletterViewSet(viewsets.ViewSet):
-    permission_classes = [AllowAny]
-
-    @action(detail=False, methods=['post'])
-    def subscribe(self, request):
-        serializer = NewsletterSubscriptionSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'success': True}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @action(detail=False, methods=['get'])
-    def subscribers(self, request):
-        subs = NewsletterSubscription.objects.all()
-        serializer = NewsletterSubscriptionSerializer(subs, many=True)
-        return Response(serializer.data)
-
-    @action(detail=False, methods=['post'])
-    def send(self, request):
-        subject = request.data.get('subject')
-        content = request.data.get('content')
-        subs_count = NewsletterSubscription.objects.count()
-        # Mocking email send
-        return Response({'success': True, 'count': subs_count})

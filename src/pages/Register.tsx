@@ -13,6 +13,7 @@ import {
   Globe
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { log } from 'console';
 
 export function Register() {
   const navigate = useNavigate();
@@ -45,10 +46,11 @@ export function Register() {
       setIsLoading(false);
       return;
     }
-
+    console.log('Data sent', formData);
+    
     try {
       await register({
-        name: formData.name,
+        username: formData.name,
         email: formData.email,
         password: formData.password,
         role: 'USER', // Default to User

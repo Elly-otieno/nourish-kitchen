@@ -5,7 +5,7 @@ import { User, UserRole } from '../types';
 interface AuthContextType {
   user: User | null;
   register: (data: any) => Promise<User>;
-  login: (email: string) => Promise<User>;
+  login: (email: string, password: string) => Promise<User>;
   logout: () => void;
   updateUser: (newUser: User) => void;
   isAdmin: boolean;
@@ -46,9 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string) => {
+  const login = async (email: string, password:string) => {
     try {
-      const data = await api.login(email) as any;
+      const data = await api.login(email, password) as any;
       const userData = data.user;
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));

@@ -19,15 +19,23 @@ export function Login() {
     setError('');
 
     try {
-      const userData = await login(email);
+      console.log('DATA SENT', 'email:', email, 'Password:', password);
+      const userData = await login({ email, password });
+
+      // Logic for redirection
+      const from = (location.state as any)?.from?.pathname;
       
-      // Get the intended destination from location state
-      const from = (location.state as any)?.from?.pathname || 
-                   (userData.role === 'ADMIN' || userData.role === 'CHEF' ? '/dashboard' : '/profile');
+      if (from) {
+        navigate(from, { replace: true });
+      } else {
+        // Fallback: Dashboard for staff/admins, profile for regular users
+        const dashboardRoles = ['ADMIN', 'CHEF'];
+        const destination = dashboardRoles.includes(userData.role) ? '/dashboard' : '/profile';
+        navigate(destination, { replace: true });
+      }
       
-      navigate(from, { replace: true });
     } catch (err: any) {
-      setError('Invalid credentials. Please check your details.');
+      setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -41,7 +49,7 @@ export function Login() {
         className="max-w-6xl w-full bg-white rounded-[3.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.06)] overflow-hidden flex flex-col lg:flex-row border border-stone-100"
       >
         {/* Left Side: Visual Inspiration - Now cojoined */}
-        <div className="lg:w-1/2 relative h-[300px] lg:h-auto overflow-hidden">
+        <div className="lg:w-1/2 relative h-75 lg:h-auto overflow-hidden">
           <motion.div 
             initial={{ scale: 1.1 }}
             animate={{ scale: 1 }}
