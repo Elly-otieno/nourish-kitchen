@@ -1,0 +1,19 @@
+# Django
+venv/
+db.sqlite3
+*.pyc
+__pycache__/
+media/
+
+# Node/React
+node_modules/
+dist/
+.env
+
+# Misc
+.DS_Store
+build/
+dist/
+coverage/
+.DS_Store
+*.log
