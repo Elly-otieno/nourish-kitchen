@@ -20,8 +20,10 @@ export function Login() {
 
     try {
       console.log('DATA SENT', 'email:', email, 'Password:', password);
-      const userData = await login({ email, password });
+      const userData = await login(email, password);
 
+      console.log('USERDATA', userData);
+      
       // Logic for redirection
       const from = (location.state as any)?.from?.pathname;
       

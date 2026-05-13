@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { api } from '../services/api';
-import { User, UserRole } from '../types';
+import { User } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -18,13 +18,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [initialized, setInitialized] = useState(false);
 
-  // In a real app, we'd check for a token in localStorage here
-  React.useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setInitialized(true);
+  /**
+   * INITIALIZATION
+   * On mount, check for a saved user and a token.
+   * we fetch 'me' from the API 
+   * to verify the token hasn't been blacklisted/expired.
+   */
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = localStorage.getItem('access_token');
+      const savedUser = localStorage.getItem('user');
+
+      if (token && savedUser) {
+        try {
+          // Verify session with backend
+          const currentUser = await api.getMe();
+          setUser(currentUser);
+          localStorage.setItem('user', JSON.stringify(currentUser));
+        } catch (error) {
+          console.error("Session expired or invalid");
+          logout(); // Clear invalid data
+        }
+      }
+      setInitialized(true);
+    };
+
+    initAuth();
   }, []);
 
   const updateUser = (newUser: User) => {
@@ -35,10 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (data: any) => {
     try {
       const res = await api.register(data);
+      
       const userData = res.user;
+      const accessToken = res.access;   
+      const refreshToken = res.refresh; 
+
       setUser(userData);
+
+      // Persist all data using consistent keys
       localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', res.token);
+      localStorage.setItem('access_token', accessToken); 
+      localStorage.setItem('refresh_token', refreshToken);
+
       return userData;
     } catch (error) {
       console.error('Registration failed:', error);
@@ -46,13 +73,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (email: string, password:string) => {
+  const login = async (email: string, password: string) => {
     try {
-      const data = await api.login(email, password) as any;
-      const userData = data.user;
+      const res = await api.login(email, password);
+      console.log('AUTH RES', res); 
+      
+      const userData = res.user;
       setUser(userData);
+
       localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', data.token);
+      localStorage.setItem('access_token', res.access);
+      localStorage.setItem('refresh_token', res.refresh);
+
+      // const userData = await api.getMe();
+      // console.log('USER', userData);
+      
       return userData;
     } catch (error) {
       console.error('Login failed:', error);
@@ -63,7 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    // Optional: navigate to login here if not handled by a protected route wrapper
   };
 
   const isAdmin = user?.role === 'ADMIN';

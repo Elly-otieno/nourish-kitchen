@@ -58,7 +58,7 @@ class Recipe(SoftDeleteModel):
     prep_time = models.CharField(max_length=50)
     cuisine = models.CharField(max_length=100)
     categories = models.JSONField(default=list)  # Using JSONField for categories list
-    hero_image = models.URLField(max_length=500)
+    hero_image = models.ImageField(upload_to='recipes/', null=True, blank=True)
     youtube_link = models.URLField(max_length=500, blank=True, null=True)
     calories = models.CharField(max_length=50, blank=True, null=True)
     spice_level = models.CharField(max_length=20, choices=SPICE_LEVELS, default='Mild')
@@ -127,3 +127,16 @@ class NewsletterSubscription(models.Model):
 
     def __str__(self):
         return self.email
+
+class RecipeArchive(Recipe):
+    class Meta:
+        proxy = True  # Doesn't create a new table in DB
+        verbose_name = "Archived Recipe"
+        verbose_name_plural = "Archive: Recipes"
+
+
+class BlogArchive(BlogPost):
+    class Meta:
+        proxy = True  # Doesn't create a new table in DB
+        verbose_name = "Archived Blogs"
+        verbose_name_plural = "Archive: Blogs"

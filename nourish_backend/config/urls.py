@@ -13,7 +13,7 @@ from rest_framework_simplejwt.views import (
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
 router.register(r'recipes', RecipeViewSet)
-router.register(r'blogs', BlogPostViewSet)
+router.register(r'posts', BlogPostViewSet)
 router.register(r'comments', CommentViewSet)
 
 urlpatterns = [

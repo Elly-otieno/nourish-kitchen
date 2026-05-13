@@ -14,32 +14,50 @@ export function Blog() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    async function loadBlogs() {
-      try {
-        const data = await api.getBlogs();
-        setBlogs(data);
-      } catch (error) {
-        console.error('Failed to load blogs:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadBlogs();
-  }, []);
-
-  const handleSoftDelete = async () => {
-    if (!deleteConfirm) return;
-    setIsDeleting(true);
+  async function loadBlogs() {
+    console.log('LOG: Fetching blogs for listing...');
     try {
-      await api.deleteBlog(deleteConfirm);
-      setBlogs(prev => prev.filter(b => b.id !== deleteConfirm));
-      setDeleteConfirm(null);
+      const data = await api.getBlogs();
+      console.log('LOG: Blogs loaded successfully. Count:', data.length);
+      setBlogs(data);
     } catch (error) {
-      console.error('Failed to archive blog:', error);
+      console.error('ERROR: Failed to load blogs:', error);
     } finally {
-      setIsDeleting(false);
+      setLoading(false);
+      console.log('LOG: Blog loading sequence complete.');
     }
-  };
+  }
+  loadBlogs();
+}, []);
+
+const handleSoftDelete = async () => {
+  // Prevent duplicate requests if already deleting
+  if (!deleteConfirm || isDeleting) return;
+
+  console.log('LOG: Starting soft-delete for blog ID:', deleteConfirm);
+  setIsDeleting(true);
+
+  try {
+    await api.deleteBlog(deleteConfirm);
+    console.log('LOG: Blog archived on server.');
+
+    // Update local state to hide the deleted item
+    setBlogs(prev => {
+      const updated = prev.filter(b => b.id !== deleteConfirm);
+      console.log('LOG: Local state updated. Blogs remaining:', updated.length);
+      return updated;
+    });
+
+    // Clear the confirmation state
+    setDeleteConfirm(null);
+  } catch (error) {
+    console.error('ERROR: Failed to archive blog:', error);
+    alert('Failed to archive blog. It may have already been removed.');
+  } finally {
+    setIsDeleting(false);
+    console.log('LOG: Delete process finished.');
+  }
+};
 
   return (
     <div className="flex-1 min-w-0 bg-background">

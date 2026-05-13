@@ -1,11 +1,14 @@
 from rest_framework import viewsets, status, filters, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
+from django.contrib.auth import authenticate
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework_simplejwt.tokens import RefreshToken
-
-from .models import User, Recipe, BlogPost, Comment, NewsletterSubscription
+from .permissions import IsAdminRole
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from .models import User, Recipe, UserRole, BlogPost, Comment, NewsletterSubscription
 from .serializers import (
     UserSerializer, RegisterSerializer, RecipeSerializer, BlogPostSerializer, 
     CommentSerializer, NewsletterSubscriptionSerializer
@@ -33,6 +36,21 @@ class UserViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny])
+    def login(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        user = authenticate(username=username, password=password)
+
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'user': UserSerializer(user).data, 
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            })
+        return Response({'detail': 'Invalid credentials'}, status=401)
+    
     @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
     def me(self, request):
         serializer = self.get_serializer(request.user)
@@ -43,8 +61,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
     serializer_class = RecipeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields = ['categories']
+    # filterset_fields = ['categories']
     search_fields = ['title', 'story', 'ingredients__name']
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        category = self.request.query_params.get('categories')
+        if category:
+            # Filters if the string exists within the JSON list
+            queryset = queryset.filter(categories__contains=category)
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -61,12 +88,39 @@ class RecipeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='toggle-like')
     def toggle_like(self, request, pk=None):
         recipe = self.get_object()
-        # Securely use request.user instead of passing userId in body
-        if recipe.liked_by.filter(id=request.user.id).exists():
-            recipe.liked_by.remove(request.user)
+        user = request.user
+        
+        if recipe.liked_by.filter(id=user.id).exists():
+            recipe.liked_by.remove(user)
+            is_liked = False
         else:
-            recipe.liked_by.add(request.user)
-        return Response({'status': 'toggled', 'likes_count': recipe.liked_by.count()})
+            recipe.liked_by.add(user)
+            is_liked = True
+            
+        return Response({
+            'liked': is_liked, 
+            'count': recipe.liked_by.count()
+        })
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Check if 'permanent=true' was passed in the URL params
+        is_permanent = request.query_params.get('permanent') == 'true'
+        
+        if is_permanent:
+            # Security check: Ensure only Admins can hard-delete
+            if request.user.role != UserRole.ADMIN:
+                print(f"LOG: Unauthorized permanent delete attempt by {request.user.username}")
+                raise PermissionDenied("Only administrators can permanently delete records.")
+            
+            print(f"LOG: Hard-deleting recipe from DB: {instance.title}")
+            instance.delete(permanent=True) # Calls your SoftDeleteModel logic
+        else:
+            print(f"LOG: Soft-deleting recipe: {instance.title}")
+            instance.delete() # Calls your SoftDeleteModel logic (defaults to permanent=False)
+            
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 class BlogPostViewSet(viewsets.ModelViewSet):
     queryset = BlogPost.objects.all().select_related('author')
@@ -81,6 +135,35 @@ class BlogPostViewSet(viewsets.ModelViewSet):
         else:
             blog.bookmarked_by.add(request.user)
         return Response({'status': 'toggled'})
+    
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        
+        # Check if 'permanent=true' was passed in the URL params
+        is_permanent = request.query_params.get('permanent') == 'true'
+        
+        if is_permanent:
+            # Security check: Ensure only Admins can hard-delete
+            if request.user.role != UserRole.ADMIN:
+                print(f"LOG: Unauthorized permanent delete attempt by {request.user.username}")
+                raise PermissionDenied("Only administrators can permanently delete records.")
+            
+            print(f"LOG: Hard-deleting recipe from DB: {instance.title}")
+            instance.delete(permanent=True) # Calls your SoftDeleteModel logic
+        else:
+            print(f"LOG: Soft-deleting recipe: {instance.title}")
+            instance.delete() # Calls your SoftDeleteModel logic (defaults to permanent=False)
+            
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['post'])
+    def restore(self, request, pk=None):
+        # use all_objects because the default manager hides soft-deleted items
+        blog = BlogPost.all_objects.filter(pk=pk, is_deleted=True).first()
+        if not blog:
+            return Response({'error': 'Blog not found in archives'}, status=404)
+        blog.restore()
+        return Response(self.get_serializer(blog).data)
 
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
@@ -99,7 +182,8 @@ class CommentViewSet(viewsets.ModelViewSet):
         return Response({'status': 'approved'})
 
 class StatsViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.IsAdminUser]
+    # permission_classes = [permissions.IsAdminUser]
+    permission_classes = [IsAdminRole]
 
     def list(self, request):
         data = {

@@ -25,6 +25,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         )
         return user
 
+import json
+from rest_framework import serializers
+from .models import User, Recipe, Ingredient, Step
+
 class IngredientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ingredient
@@ -38,48 +42,87 @@ class StepSerializer(serializers.ModelSerializer):
 class RecipeSerializer(serializers.ModelSerializer):
     ingredients = IngredientSerializer(many=True)
     steps = StepSerializer(many=True)
+    
     author_name = serializers.ReadOnlyField(source='author.username')
     liked_by_count = serializers.IntegerField(source='liked_by.count', read_only=True)
 
     class Meta:
         model = Recipe
-        fields = [
-            'id', 'title', 'story', 'author', 'author_name', 'prep_time',
-            'cuisine', 'categories', 'hero_image', 'youtube_link',
-            'calories', 'spice_level', 'ingredients', 'steps',
-            'pro_tip', 'rating', 'views', 'liked_by', 'liked_by_count',
-            'created_at', 'updated_at', 'is_published', 'is_deleted'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'views', 'rating']
+        fields = '__all__'
+       
+        read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'views', 'rating', 'liked_by']
+
+    def to_internal_value(self, data):
+        """
+        Customizes how data is received. This is crucial for handling FormData,
+        which sends JSON arrays (ingredients, steps, categories) as strings.
+        """
+        import json
+        # Handle the QueryDict from MultiPartParser
+        # We convert to a dict to make it mutable
+        if hasattr(data, 'dict'):
+            resource_data = data.dict()
+        else:
+            resource_data = data.copy() if hasattr(data, 'copy') else data
+
+        # Parse strings into lists/objects
+        for field in ['ingredients', 'steps', 'categories']:
+            value = resource_data.get(field)
+            if isinstance(value, str):
+                try:
+                    resource_data[field] = json.loads(value)
+                except (ValueError, TypeError):
+                    # If it's not JSON, let it pass to standard validation
+                    pass
+        
+        # Remove empty image strings/nulls to prevent URL errors
+        if 'hero_image' in resource_data:
+            if not resource_data['hero_image'] or resource_data['hero_image'] in ['null', 'undefined', '']:
+                resource_data.pop('hero_image')
+
+        return super().to_internal_value(resource_data)
 
     def create(self, validated_data):
-        ingredients_data = validated_data.pop('ingredients')
-        steps_data = validated_data.pop('steps')
+        """
+        Handles nested creation of Ingredients and Steps.
+        """
+        ingredients_data = validated_data.pop('ingredients', [])
+        steps_data = validated_data.pop('steps', [])
+        
         recipe = Recipe.objects.create(**validated_data)
+        
         for ingredient_data in ingredients_data:
             Ingredient.objects.create(recipe=recipe, **ingredient_data)
+            
         for step_data in steps_data:
             Step.objects.create(recipe=recipe, **step_data)
+            
         return recipe
 
     def update(self, instance, validated_data):
+        """
+        Handles nested updates by clearing old records and creating new ones.
+        """
         ingredients_data = validated_data.pop('ingredients', None)
         steps_data = validated_data.pop('steps', None)
 
+        # Update the main recipe fields
         instance = super().update(instance, validated_data)
 
+        # Update Ingredients if provided
         if ingredients_data is not None:
             instance.ingredients.all().delete()
             for ingredient_data in ingredients_data:
                 Ingredient.objects.create(recipe=instance, **ingredient_data)
 
+        # Update Steps if provided
         if steps_data is not None:
             instance.steps.all().delete()
             for step_data in steps_data:
                 Step.objects.create(recipe=instance, **step_data)
 
         return instance
-
+    
 class BlogPostSerializer(serializers.ModelSerializer):
     author_name = serializers.ReadOnlyField(source='author.username')
     bookmarked_by_count = serializers.IntegerField(source='bookmarked_by.count', read_only=True)
