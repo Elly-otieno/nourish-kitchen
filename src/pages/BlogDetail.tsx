@@ -26,69 +26,124 @@ import {
   FindMoreRecipesSection,
   BackToTopButton,
 } from "../components/RecipeFooterSections";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export function BlogDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, isAdmin, isChef } = useAuth();
-  const [post, setPost] = useState<BlogPost | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // Local UI-only states stay right here
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
 
-  useEffect(() => {
-    async function loadPost() {
-      if (!id) return;
-      console.log("LOG: Loading blog post details for ID:", id);
-      setLoading(true);
+  const blogId = id ? Number(id) : NaN;
 
+  // ==========================================
+  // DATA QUERY
+  // ==========================================
+  const { 
+    data: post = null, 
+    isLoading: loading 
+  } = useQuery<BlogPost | null>({
+    queryKey: ["blog", blogId],
+    queryFn: async () => {
+      console.log(`LOG: Fetching individual blog data for ID: ${blogId}`);
       try {
-        const data = await api.getBlog(id);
-        console.log("LOG: Blog data retrieved:", data.title);
-        setPost(data);
-
-        if (user) {
-          const bookmarked = data.bookmarkedBy?.includes(user.id) || false;
-          console.log("LOG: User bookmark status:", bookmarked);
-          setIsBookmarked(bookmarked);
-        }
+        return await api.getBlog(blogId);
       } catch (error) {
         console.error("ERROR: Failed to load blog post:", error);
         navigate("/blog/all");
-      } finally {
-        setLoading(false);
-        console.log("LOG: Loading sequence finished.");
+        return null;
       }
-    }
-    loadPost();
-  }, [id, navigate, user?.id]); // Using user.id is more stable than the user object
+    },
+    enabled: !isNaN(blogId), // Only run query if a valid numeric ID exists in URL
+    // Pull summary data out of the landing page list cache for instant rendering
+    initialData: () => {
+      const cachedList = queryClient.getQueryData<BlogPost[]>(["blogs"]);
+      return cachedList?.find((b) => b.id === blogId) || undefined;
+    },
+  });
 
-  const toggleBookmark = async () => {
+  // ==========================================
+  // MUTATIONS (Bookmark & Delete Operations)
+  // ==========================================
+
+  // Toggle Bookmark Mutation
+  const toggleBookmarkMutation = useMutation({
+    mutationFn: async () => {
+      if (!post || !user) return null;
+      return await api.toggleBookmarkBlog(post.id, user.id);
+    },
+    onSuccess: (updatedPost) => {
+      if (!updatedPost || !user) return;
+
+      // Update the cache for this specific blog detail instantly
+      queryClient.setQueryData(["blog", blogId], updatedPost);
+
+      // Explicitly check bookmarked_by (snake_case from backend interface)
+      const isNowBookmarked = updatedPost.bookmarked_by?.includes(user.id) || false;
+      setIsBookmarked(isNowBookmarked);
+      console.log("LOG: Bookmark status updated in cache to:", isNowBookmarked);
+
+      // Silently refresh the parent lists in the background
+      queryClient.invalidateQueries({ queryKey: ["blogs"] });
+    },
+    onError: (error) => {
+      console.error("ERROR: Bookmark toggle failed:", error);
+    },
+  });
+
+  // Soft Delete Blog Mutation
+  const deleteBlogMutation = useMutation({
+    mutationFn: (idToDelete: number) => api.deleteBlog(idToDelete),
+    onSuccess: () => {
+      console.log("LOG: Archive successful. Triggering notification and redirect.");
+      setNotification({
+        type: "success",
+        message: "Journal entry moved to archives.",
+      });
+
+      // Clear the primary blogs cache list to remove it from selection tables
+      queryClient.invalidateQueries({ queryKey: ["blogs"] });
+
+      // Redirect after a 2-second delay
+      setTimeout(() => {
+        setNotification(null);
+        navigate("/blog/all");
+      }, 2000);
+    },
+    onError: (error) => {
+      console.error("ERROR: Failed to archive entry:", error);
+      setNotification({ type: "error", message: "Failed to archive entry." });
+    },
+    onSettled: () => {
+      setShowDeleteConfirm(false);
+    },
+  });
+
+  // Syncing UI's local bookmarked flag state whenever data loads
+  useEffect(() => {
+    if (post && user) {
+      setIsBookmarked(post.bookmarked_by?.includes(user.id) || false);
+    }
+  }, [post, user]);
+
+  // ==========================================
+  // ACTION AND NAVIGATION UTILITIES
+  // ==========================================
+  const toggleBookmark = () => {
     if (!user) {
-      console.log(
-        "LOG: Unauthenticated user attempted bookmark. Redirecting to login.",
-      );
+      console.log("LOG: Unauthenticated user attempted bookmark. Redirecting to login.");
       navigate("/login");
       return;
     }
-    if (!post) return;
-
-    console.log("LOG: Toggling bookmark for post:", post.id);
-    try {
-      const updated = await api.toggleBookmarkBlog(post.id, user.id);
-      setPost(updated);
-
-      const isNowBookmarked = updated.bookmarkedBy?.includes(user.id) || false;
-      setIsBookmarked(isNowBookmarked);
-      console.log("LOG: Bookmark status updated to:", isNowBookmarked);
-    } catch (error) {
-      console.error("ERROR: Bookmark toggle failed:", error);
-    }
+    toggleBookmarkMutation.mutate();
   };
 
   const shareBlog = () => {
@@ -106,42 +161,19 @@ export function BlogDetail() {
         .catch((err) => console.error("ERROR: Share failed", err));
     } else {
       navigator.clipboard.writeText(window.location.href);
-      console.log(
-        "LOG: Navigator.share unavailable. Link copied to clipboard.",
-      );
+      console.log("LOG: Navigator.share unavailable. Link copied to clipboard.");
       alert("Link copied to clipboard!");
     }
   };
 
-  const handleSoftDelete = async () => {
-    if (!id) return;
-    console.log("LOG: Requesting soft-delete for current blog entry.");
-    setIsDeleting(true);
-
-    try {
-      await api.deleteBlog(id);
-      console.log(
-        "LOG: Archive successful. Triggering notification and redirect.",
-      );
-
-      setNotification({
-        type: "success",
-        message: "Journal entry moved to archives.",
-      });
-
-      // Redirect after delay
-      setTimeout(() => {
-        setNotification(null);
-        navigate("/blog/all");
-      }, 2000);
-    } catch (error) {
-      console.error("ERROR: Failed to archive entry:", error);
-      setNotification({ type: "error", message: "Failed to archive entry." });
-      setIsDeleting(false); // Only reset here if we aren't navigating away
-    } finally {
-      setShowDeleteConfirm(false);
-    }
+  const handleSoftDelete = () => {
+    if (isNaN(blogId)) return;
+    deleteBlogMutation.mutate(blogId);
   };
+
+  // Provide simple boolean properties back to your layout renderers
+  const isDeleting = deleteBlogMutation.isPending;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -257,7 +289,7 @@ export function BlogDetail() {
           initial={{ scale: 1.1 }}
           animate={{ scale: 1 }}
           transition={{ duration: 1.5, ease: "easeOut" }}
-          src={post.heroImage}
+          src={post.hero_image}
           alt={post.title}
           className="w-full h-full object-cover"
         />
@@ -280,14 +312,14 @@ export function BlogDetail() {
               <div className="flex flex-wrap items-center gap-8 text-white/80 border-t border-white/10 pt-10 mt-4 font-sans">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-black shadow-inner">
-                    {post.authorName[0]}
+                    {post.author_name[0]}
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs text-white/40 uppercase tracking-widest mb-0.5">
                       Author
                     </span>
                     <span className="text-sm font-bold tracking-wide text-white">
-                      {post.authorName}
+                      {post.author_name}
                     </span>
                   </div>
                 </div>
@@ -315,7 +347,7 @@ export function BlogDetail() {
                       className={isBookmarked ? "fill-current" : ""}
                     />
                   </button>
-                  {(isChef || user?.id === post.authorId || isAdmin) && (
+                  {(isChef || user?.id === post.author_id || isAdmin) && (
                     <button
                       onClick={() => navigate(`/blog/all/${post.id}/edit`)}
                       className="hover:text-emerald-300 transition-all hover:scale-110 cursor-pointer text-white/80"
@@ -324,7 +356,7 @@ export function BlogDetail() {
                       <Pencil size={24} />
                     </button>
                   )}
-                  {(isChef || user?.id === post.authorId || isAdmin) && (
+                  {(isChef || user?.id === post.author_id || isAdmin) && (
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
                       className="hover:text-red-400 transition-all hover:scale-110 cursor-pointer text-white/60"
@@ -365,7 +397,7 @@ export function BlogDetail() {
                 components={{
                   p: ({ node, ...props }) => (
                     <p
-                      className="text-stone-600 text-xl font-serif leading-[1.8] mt-[12px] mb-[12px]"
+                      className="text-stone-600 text-xl font-serif leading-[1.8] mt-3 mb-3"
                       {...props}
                     />
                   ),
@@ -400,19 +432,19 @@ export function BlogDetail() {
             </div>
           </div>
 
-          {post.syndicationLinks && post.syndicationLinks.length > 0 && (
+          {post.syndication_links && post.syndication_links.length > 0 && (
             <div className="mt-12 pt-8 border-t border-stone-100 print:hidden">
               <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-[#b58e3e] mb-8">
                 External Features
               </h4>
               <div className="flex flex-wrap gap-4">
-                {post.syndicationLinks.map((link) => (
+                {post.syndication_links.map((link) => (
                   <a
                     key={link.site}
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-4 px-8 py-5 bg-white rounded-[2rem] text-stone-900 font-bold text-sm hover:bg-emerald-50 hover:text-emerald-800 transition-all border border-stone-100 shadow-sm hover:shadow-md group"
+                    className="flex items-center gap-4 px-8 py-5 bg-white rounded-4xl text-stone-900 font-bold text-sm hover:bg-emerald-50 hover:text-emerald-800 transition-all border border-stone-100 shadow-sm hover:shadow-md group"
                   >
                     <span>Read on {link.site}</span>
                     <ExternalLink
@@ -436,7 +468,7 @@ export function BlogDetail() {
                   Story By
                 </p>
                 <p className="font-serif text-lg font-bold text-primary">
-                  {post.authorName}
+                  {post.author_name}
                 </p>
               </div>
             </div>

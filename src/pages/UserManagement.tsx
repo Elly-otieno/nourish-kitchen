@@ -1,32 +1,71 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { User as UserIcon, Shield, UserPlus, Search, Trash2, Mail, BadgeCheck, X } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 import { User, UserRole } from '../types';
 
 export function UserManagement() {
   const { user, isAdmin: isAuthAdmin } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
+  const queryClient = useQueryClient();
+  
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [newUserData, setNewUserData] = useState({ name: '', email: '', role: 'CHEF' as UserRole });
-  const [loading, setLoading] = useState(true);
+  const [successMsg, setSuccessMsg] = useState('');
 
-  useEffect(() => {
-    async function loadUsers() {
-      try {
-        const data = await api.getUsers();
-        setUsers(data);
-      } catch (error) {
-        console.error('Failed to load users:', error);
-      } finally {
-        setLoading(false);
+  // Fetch Users Query
+  const { data: users = [], isLoading } = useQuery<User[], Error>({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const data = await api.getUsers();
+      // Handle potential pagination payload wrappers safely
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === 'object' && Array.isArray((data as any).results)) {
+        return (data as any).results;
       }
-    }
-    if (isAuthAdmin) loadUsers();
-  }, [isAuthAdmin]);
+      return [];
+    },
+    enabled: !!isAuthAdmin, // Only run if the user is verified as an admin
+  });
 
+  // Create User Mutation
+  const createUserMutation = useMutation({
+    mutationFn: (newMember: { name: string; email: string; role: UserRole }) => api.createUser(newMember),
+    onSuccess: (newUser) => {
+      // Optimistically update or invalidate cache
+      queryClient.setQueryData(['users'], (oldUsers: User[] | undefined) => {
+        return oldUsers ? [newUser, ...oldUsers] : [newUser];
+      });
+      
+      setSuccessMsg(`Invitation sent to ${newUserData.email}!`);
+      setTimeout(() => {
+        setSuccessMsg('');
+        setShowAddModal(false);
+        setNewUserData({ name: '', email: '', role: 'CHEF' });
+      }, 3000);
+    },
+    onError: (error: any) => {
+      alert(error.message || 'Failed to add member');
+    }
+  });
+
+  // 3. Delete User Mutation
+  const deleteUserMutation = useMutation({
+    mutationFn: (id: string) => api.deleteUser(id),
+    onSuccess: (_, deletedId) => {
+      queryClient.setQueryData(['users'], (oldUsers: User[] | undefined) => {
+        return oldUsers ? oldUsers.filter(u => u.id !== deletedId) : [];
+      });
+    },
+    onError: (error: any) => {
+      console.error('User deletion failed:', error);
+      alert(error.message || 'The server encountered an error while trying to remove this member.');
+    }
+  });
+
+  // Authorization Shield guard clause
   if (!isAuthAdmin) {
     return (
       <div className="flex-1 flex items-center justify-center p-12 text-center">
@@ -39,54 +78,26 @@ export function UserManagement() {
     );
   }
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState('');
-
-  const handleAddUser = async (e: React.FormEvent) => {
+  const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      const newUser = await api.createUser(newUserData);
-      setUsers([newUser, ...users]);
-      setSuccessMsg(`Invitation sent to ${newUserData.email}!`);
-      setTimeout(() => {
-        setSuccessMsg('');
-        setShowAddModal(false);
-        setNewUserData({ name: '', email: '', role: 'CHEF' });
-      }, 3000);
-    } catch (error: any) {
-      alert(error.message || 'Failed to add member');
-    } finally {
-      setIsSubmitting(false);
-    }
+    createUserMutation.mutate(newUserData);
   };
 
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-
-  const removeUser = async (id: string) => {
+  const removeUser = (id: string) => {
     if (id === user?.id) {
       alert("You cannot remove your own administrative access while logged in.");
       return;
     }
 
     if (confirm('Are you sure you want to remove this member from the kitchen?')) {
-      setDeletingId(id);
-      try {
-        await api.deleteUser(id);
-        setUsers(prev => prev.filter(u => u.id !== id));
-        // Add a small success notification if we had one, but we'll just rely on the list update for now
-      } catch (error: any) {
-        console.error('User deletion failed:', error);
-        alert(error.message || 'The server encountered an error while trying to remove this member. Please try again.');
-      } finally {
-        setDeletingId(null);
-      }
+      deleteUserMutation.mutate(id);
     }
   };
 
+  // Safe case-insensitive string parsing
   const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(search.toLowerCase()) || 
-    u.email.toLowerCase().includes(search.toLowerCase())
+    (u.username || '').toLowerCase().includes(search.toLowerCase()) || 
+    (u.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -122,7 +133,7 @@ export function UserManagement() {
               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Total Staff</p>
               <p className="font-serif text-2xl font-bold text-primary">{users.length}</p>
             </div>
-            <div className="h-10 w-[1px] bg-stone-200" />
+            <div className="h-10 w-px bg-stone-200" />
             <div>
               <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Active Now</p>
               <p className="font-serif text-2xl font-bold text-emerald-600">1</p>
@@ -130,9 +141,9 @@ export function UserManagement() {
           </div>
         </div>
 
-        {/* Users Table */}
+        {/* Users Table Container */}
         <div className="bg-white rounded-[2.5rem] border border-stone-100 overflow-hidden shadow-sm">
-          {loading ? (
+          {isLoading ? (
             <div className="p-20 text-center">
               <div className="w-10 h-10 border-4 border-stone-100 border-t-stone-600 rounded-full animate-spin mx-auto mb-4" />
               <p className="text-stone-400 font-serif italic">Loading registry...</p>
@@ -150,54 +161,50 @@ export function UserManagement() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-50">
-                  {filteredUsers.map((user) => (
-                    <tr key={user.id} className="group hover:bg-stone-50/30 transition-colors">
+                  {filteredUsers.map((item: User) => (
+                    <tr key={item.id} className="group hover:bg-stone-50/30 transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-primary font-bold text-xs border border-stone-200 shadow-sm overflow-hidden">
-                            {user.avatar ? (
-                              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            {item.avatar ? (
+                              <img src={item.avatar} alt={item.username} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                             ) : (
-                              user.name.charAt(0)
+                              (item.username || item.username || 'U').charAt(0)
                             )}
                           </div>
                           <div>
-                            <p className="font-serif font-bold text-stone-900">{user.name}</p>
-                            <p className="text-xs text-stone-400">{user.email}</p>
+                            <p className="font-serif font-bold text-stone-900">{item.username}</p>
+                            <p className="text-xs text-stone-400">{item.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-8 py-6">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                          user.role === 'ADMIN' ? 'bg-primary/10 text-primary' : 'bg-stone-100 text-stone-600'
+                          item.role === 'ADMIN' ? 'bg-primary/10 text-primary' : 'bg-stone-100 text-stone-600'
                         }`}>
-                          {user.role === 'ADMIN' && <BadgeCheck size={12} />}
-                          {user.role}
+                          {item.role === 'ADMIN' && <BadgeCheck size={12} />}
+                          {item.role}
                         </span>
                       </td>
                       <td className="px-8 py-6">
                         <span className={`flex items-center gap-2 text-xs font-medium ${
-                          user.status === 'active' ? 'text-emerald-600' : 'text-amber-500'
+                          item.status === 'active' ? 'text-emerald-600' : 'text-amber-500'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-                          {user.status === 'active' ? 'Verified' : 'Invited'}
+                          <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'active' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                          {item.status === 'active' ? 'Verified' : 'Invited'}
                         </span>
                       </td>
                       <td className="px-8 py-6 text-xs text-stone-400 italic">
-                        {user.lastSeen}
+                        {item.last_seen || 'Never'}
                       </td>
                       <td className="px-8 py-6">
-                        {user.id !== '1' && (
+                        {item.id !== '1' && (
                           <button 
-                            onClick={() => removeUser(user.id)}
-                            disabled={deletingId === user.id}
-                            className={`p-2 rounded-lg transition-all ${
-                              deletingId === user.id 
-                                ? 'text-stone-300' 
-                                : 'text-stone-300 hover:text-red-500 hover:bg-red-50'
-                            }`}
+                            onClick={() => removeUser(item.id)}
+                            disabled={deleteUserMutation.isPending && deleteUserMutation.variables === item.id}
+                            className="p-2 rounded-lg text-stone-300 hover:text-red-500 hover:bg-red-50 disabled:text-stone-200 transition-all"
                           >
-                            {deletingId === user.id ? (
+                            {deleteUserMutation.isPending && deleteUserMutation.variables === item.id ? (
                               <div className="w-4 h-4 border-2 border-stone-200 border-t-red-500 rounded-full animate-spin" />
                             ) : (
                               <Trash2 size={16} />
@@ -234,6 +241,12 @@ export function UserManagement() {
                   <h3 className="font-serif text-2xl font-bold text-stone-900">New Member</h3>
                   <button onClick={() => setShowAddModal(false)} className="text-stone-300 hover:text-stone-900"><X size={20} /></button>
                 </div>
+
+                {successMsg && (
+                  <div className="mb-4 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-xs font-semibold text-center">
+                    {successMsg}
+                  </div>
+                )}
 
                 <form onSubmit={handleAddUser} className="space-y-6">
                   <div className="space-y-2">
@@ -289,9 +302,10 @@ export function UserManagement() {
 
                   <button 
                     type="submit"
-                    className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-emerald-900 transition-all mt-4 shadow-lg shadow-primary/20"
+                    disabled={createUserMutation.isPending}
+                    className="w-full bg-primary disabled:bg-stone-300 text-white py-4 rounded-2xl font-bold text-sm uppercase tracking-widest hover:bg-emerald-900 transition-all mt-4 shadow-lg shadow-primary/20"
                   >
-                    Add to Kitchen
+                    {createUserMutation.isPending ? 'Adding...' : 'Add to Kitchen'}
                   </button>
                 </form>
               </motion.div>

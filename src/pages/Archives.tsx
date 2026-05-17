@@ -308,7 +308,7 @@ function ArchiveCard({
   isProcessing: boolean;
 }) {
   const isRecipe = type === "recipe";
-  const imgUrl = item.heroImage;
+  const imgUrl = item.hero_image;
   const title = item.title;
   const deletedAt = (item as any).deletedAt;
 

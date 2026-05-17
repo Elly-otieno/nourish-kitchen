@@ -30,41 +30,113 @@ import {
   FindMoreRecipesSection,
   BackToTopButton
 } from '../components/RecipeFooterSections';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function RecipeDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isAdmin, user } = useAuth();
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
-  const [loading, setLoading] = useState(true);
   
+  // Local UI-only states stay right here
   const [servingsMultiplier, setServingsMultiplier] = useState(4);
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [userRating, setUserRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   
   const recipeSectionRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    async function loadRecipe() {
-      if (!id) return;
-      try {
-        const data = await api.getRecipe(id);
-        setRecipe(data);
-      } catch (error) {
-        console.error('Failed to load recipe:', error);
-        navigate('/recipes');
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadRecipe();
-  }, [id, navigate]);
+  const recipeId = id ? Number(id) : NaN;
 
+  // ==========================================
+  // INDIVIDUAL DATA QUERY
+  // ==========================================
+  const { 
+    data: recipe = null, 
+    isLoading: loading 
+  } = useQuery<Recipe | null>({
+    queryKey: ['recipe', recipeId],
+    queryFn: async () => {
+      console.log(`LOG: Fetching individual recipe data for ID: ${recipeId}`);
+      try {
+        // Change api.getRecipe(id) to match whatever your api layout utilizes
+        return await api.getRecipe(recipeId); 
+      } catch (error) {
+        console.error('Failed to load recipe inside hook:', error);
+        navigate('/recipes');
+        return null;
+      }
+    },
+    enabled: !isNaN(recipeId), // Only run query if a valid numeric ID exists in URL
+    // Look into landing page list cache to instantly render data with 0 spinner delay!
+    initialData: () => {
+      const cachedList = queryClient.getQueryData<Recipe[]>(['recipes']);
+      return cachedList?.find((r) => r.id === recipeId) || undefined;
+    }
+  });
+
+  // ==========================================
+  // MUTATIONS (Delete & Like Operations)
+  // ==========================================
+
+  // Delete Recipe Mutation
+  const deleteRecipeMutation = useMutation({
+    mutationFn: (idToDelete: number) => api.deleteRecipe(idToDelete),
+    onSuccess: () => {
+      setNotification({ type: 'success', message: 'Recipe removed from your collection.' });
+      // Invalidate the primary list query cache so it auto-refreshes when we go back
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
+      
+      setTimeout(() => {
+        setNotification(null);
+        navigate('/recipes');
+      }, 2000);
+    },
+    onError: (error) => {
+      console.error('Failed to delete recipe:', error);
+      setNotification({ type: 'error', message: 'Failed to remove recipe.' });
+    },
+    onSettled: () => {
+      setShowDeleteConfirm(false);
+    }
+  });
+
+  // Toggle Like Mutation
+  const toggleLikeMutation = useMutation({
+    mutationFn: async () => {
+      if (!recipe || !user) return null;
+      return await api.toggleLikeRecipe(recipe.id, user.id);
+    },
+    onSuccess: (updatedRecipe) => {
+      if (!updatedRecipe || !user) return;
+      
+      // Update this individual recipe cache instantly across the UI
+      queryClient.setQueryData(['recipe', recipeId], updatedRecipe);
+      
+      // Force sync backend liked_by array
+      setIsLiked(updatedRecipe.liked_by?.includes(user.id) || false);
+      
+      // Sync list query cache silently
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
+    },
+    onError: (error) => {
+      console.error('Failed to toggle like structure:', error);
+    }
+  });
+
+  // Syncing initial local like state flag when data fetches or loads
+  useEffect(() => {
+    if (recipe && user) {
+      setIsLiked(recipe.liked_by?.includes(user.id) || false);
+    }
+  }, [recipe, user]);
+
+  // ==========================================
+  // ACTIONS AND CLEAN DISPATCH METHODS
+  // ==========================================
   const toggleIngredient = (id: string) => {
     setCheckedItems(prev => ({ ...prev, [id]: !prev[id] }));
   };
@@ -84,47 +156,21 @@ export function RecipeDetail() {
     window.print();
   };
 
-  const handleDelete = async () => {
-    if (!id) return;
-    setIsDeleting(true);
-    try {
-      await api.deleteRecipe(id);
-      setNotification({ type: 'success', message: 'Recipe removed from your collection.' });
-      setTimeout(() => {
-        setNotification(null);
-        navigate('/recipes');
-      }, 2000);
-    } catch (error) {
-      console.error('Failed to delete recipe:', error);
-      setNotification({ type: 'error', message: 'Failed to remove recipe.' });
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteConfirm(false);
-    }
+  const handleDelete = () => {
+    if (isNaN(recipeId)) return;
+    deleteRecipeMutation.mutate(recipeId);
   };
 
-  const toggleLike = async () => {
+  const toggleLike = () => {
     if (!user) {
       navigate('/login');
       return;
     }
-
-    if (!recipe) return;
-
-    try {
-      const updated = await api.toggleLikeRecipe(recipe.id, user.id);
-      setRecipe(updated);
-      setIsLiked(updated.likedBy?.includes(user.id) || false);
-    } catch (error) {
-      console.error('Failed to toggle like:', error);
-    }
+    toggleLikeMutation.mutate();
   };
 
-  useEffect(() => {
-    if (recipe && user) {
-      setIsLiked(recipe.likedBy?.includes(user.id) || false);
-    }
-  }, [recipe, user]);
+  // Provide a clean boolean back templates
+  const isDeleting = deleteRecipeMutation.isPending;
 
   if (loading) {
     return (
@@ -234,12 +280,12 @@ export function RecipeDetail() {
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 mb-10 pb-10 border-b border-stone-100">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-full overflow-hidden border border-stone-200">
-                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${recipe.authorName}`} alt={recipe.authorName} className="w-full h-full object-cover" />
+                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${recipe.author_name}`} alt={recipe.authorName} className="w-full h-full object-cover" />
               </div>
               <div className="text-left">
                 <p className="text-[9px] font-black uppercase tracking-widest text-stone-400">Created By</p>
-                <Link to={`/users/${recipe.authorId}`} className="font-serif text-base font-bold text-primary hover:text-emerald-700 transition-colors">
-                  {recipe.authorName}
+                <Link to={`/users/${recipe.author}`} className="font-serif text-base font-bold text-primary hover:text-emerald-700 transition-colors">
+                  {recipe.author_name}
                 </Link>
               </div>
             </div>
@@ -249,7 +295,7 @@ export function RecipeDetail() {
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-2 text-zinc-900 font-bold tracking-tight">
                   <Clock className="w-4 h-4 text-primary" />
-                  <span className="text-sm">{recipe.prepTime}</span>
+                  <span className="text-sm">{recipe.prep_time}</span>
                 </div>
                 {recipe.calories && (
                    <div className="flex items-center gap-2 text-zinc-900 font-bold tracking-tight">
@@ -257,10 +303,10 @@ export function RecipeDetail() {
                     <span className="text-sm">{recipe.calories}</span>
                   </div>
                 )}
-                {recipe.spiceLevel && (
+                {recipe.spice_level && (
                    <div className="flex items-center gap-2 text-zinc-900 font-bold tracking-tight">
                     <span className="text-sm opacity-40">•</span>
-                    <span className="text-sm">{recipe.spiceLevel} Heat</span>
+                    <span className="text-sm">{recipe.spice_level} Heat</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 text-zinc-900 font-bold tracking-tight">
@@ -299,7 +345,7 @@ export function RecipeDetail() {
               {isLiked ? 'Saved to Collection' : 'Save Recipe'}
             </button>
 
-            {(isAdmin || user?.role === 'CHEF' || user?.id === recipe.authorId) && (
+            {(isAdmin || user?.role === 'CHEF' || user?.id === recipe.author) && (
               <>
                 <button 
                   onClick={() => navigate(`/recipes/${recipe.id}/edit`)}
@@ -325,12 +371,12 @@ export function RecipeDetail() {
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
-            className="aspect-[16/9] md:aspect-[21/9] rounded-none md:rounded-[3rem] overflow-hidden shadow-2xl relative border border-stone-100"
+            className="aspect-video md:aspect-21/9 rounded-none md:rounded-[3rem] overflow-hidden shadow-2xl relative border border-stone-100"
           >
             <img 
               alt={recipe.title} 
               className="w-full h-full object-cover" 
-              src={recipe.heroImage} 
+              src={recipe.hero_image} 
               referrerPolicy="no-referrer"
             />
           </motion.div>
@@ -447,7 +493,7 @@ export function RecipeDetail() {
                     <span className="text-[9px] font-black uppercase tracking-widest">The Secret</span>
                   </div>
                   <p className="text-stone-700 italic leading-relaxed font-serif text-lg">
-                    "{recipe.proTip}"
+                    "{recipe.pro_tip}"
                   </p>
                 </motion.div>
               </div>
@@ -484,7 +530,7 @@ export function RecipeDetail() {
             </article>
           </section>
 
-          {recipe.youtubeLink && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/.test(recipe.youtubeLink) && (
+          {recipe.youtube_link && /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.?be)\/.+$/.test(recipe.youtube_link) && (
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -495,7 +541,7 @@ export function RecipeDetail() {
               <div className="absolute inset-0 bg-emerald-950/95" />
               <div className="absolute inset-0 opacity-20">
                 <img 
-                  src={recipe.heroImage} 
+                  src={recipe.hero_image} 
                   alt="" 
                   className="w-full h-full object-cover grayscale scale-110 group-hover:scale-100 transition-transform duration-[3s]" 
                 />
@@ -513,7 +559,7 @@ export function RecipeDetail() {
                 </div>
                 
                 <a 
-                  href={recipe.youtubeLink} 
+                  href={recipe.youtube_link} 
                   target="_blank" 
                   rel="noopener noreferrer" 
                   className="group/btn relative inline-flex items-center gap-6 px-12 py-6 bg-white text-emerald-950 rounded-full font-black text-[10px] uppercase tracking-[0.4em] overflow-hidden hover:bg-emerald-50 transition-all active:scale-95 shadow-[0_20px_50px_rgba(0,0,0,0.3)]"

@@ -21,112 +21,123 @@ import { api } from "../services/api";
 import { Recipe, BlogPost } from "../types";
 import { RecipeCard } from "../components/RecipeCard";
 import { useAuth } from "../contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export function Landing() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Standard UI States
   const [subscribed, setSubscribed] = useState(false);
   const [email, setEmail] = useState("");
   const [visibleCount, setVisibleCount] = useState(4);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [blogs, setBlogs] = useState<BlogPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      console.log("LOG: Initializing landing page data fetch...");
-      setLoading(true);
+  // ==========================================
+  // DATA QUERIES (Replaces useEffect fetching)
+  // ==========================================
+  const { 
+    data: recipes = [], 
+    isLoading: isRecipesLoading 
+  } = useQuery<Recipe[]>({
+    queryKey: ['recipes'],
+    queryFn: async () => {
+      console.log("LOG: React Query fetching recipes...");
+      return await api.getRecipes();
+    },
+  });
 
-      try {
-        // Parallel execution with individual success logs
-        const [recipesData, blogsData] = await Promise.all([
-          api.getRecipes().then((res) => {
-            console.log(
-              "LOG: Recipes fetched successfully. Count:",
-              res.length,
-            );
-            return res;
-          }),
-          api.getBlogs().then((res) => {
-            console.log("LOG: Blogs fetched successfully. Count:", res.length);
-            return res;
-          }),
-        ]);
+  const { 
+    data: blogs = [], 
+    isLoading: isBlogsLoading 
+  } = useQuery<BlogPost[]>({
+    queryKey: ['blogs'],
+    queryFn: async () => {
+      console.log("LOG: React Query fetching blogs...");
+      return await api.getBlogs();
+    },
+  });
 
-        setRecipes(recipesData);
-        setBlogs(blogsData);
-        console.log("LOG: State updated with recipes and blogs.");
-      } catch (error) {
-        console.error("ERROR: Failed to load landing data:", error);
-      } finally {
-        setLoading(false);
-        console.log("LOG: Data loading sequence complete.");
-      }
+  // Combine loading states for layout loader fallback
+  const loading = isRecipesLoading || isBlogsLoading;
+
+  // ==========================================
+  // MUTATIONS (Replaces async handlers)
+  // ==========================================
+  
+  // Soft Delete Recipe Mutation
+  const deleteRecipeMutation = useMutation({
+    mutationFn: (recipeId: number) => api.deleteRecipe(recipeId),
+    onSuccess: () => {
+      console.log("LOG: Recipe successfully archived. Invalidating cache...");
+      // Tells React Query to instantly refresh recipes list from backend
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
+      setDeleteConfirm(null);
+    },
+    onError: (error) => {
+      console.error("ERROR: Failed to archive recipe:", error);
     }
-    loadData();
-  }, []);
+  });
 
+  // Soft Delete Blog Mutation
+  const deleteBlogMutation = useMutation({
+    mutationFn: (blogId: number) => {
+      if (api.deleteBlog) return api.deleteBlog(blogId);
+      return Promise.reject(new Error("deleteBlog method not found on api object"));
+    },
+    onSuccess: () => {
+      console.log("LOG: Blog successfully archived. Invalidating cache...");
+      queryClient.invalidateQueries({ queryKey: ['blogs'] });
+    },
+    onError: (error) => {
+      console.error("ERROR: Failed to archive blog entry:", error);
+    }
+  });
+
+  // Newsletter Subscription Mutation
+  const subscribeMutation = useMutation({
+    mutationFn: (emailString: string) => api.subscribeToNewsletter(emailString),
+    onSuccess: () => {
+      setSubscribed(true);
+      setEmail("");
+      setTimeout(() => setSubscribed(false), 5000);
+    },
+    onError: (error) => {
+      console.error("ERROR: Subscription failed:", error);
+      alert(`Subscription error: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  });
+
+  // ==========================================
+  // COMPUTED LAYOUT VALUES
+  // ==========================================
   const featuredRecipes = recipes.slice(0, 3);
   const latestFinds = recipes.slice(3, 3 + visibleCount);
   const hasMoreRecipes = 3 + visibleCount < recipes.length;
 
-  const handleSubscribe = async (e: React.FormEvent) => {
+  // ==========================================
+  // CLEAN DISPATCH WRAPPERS (For JSX buttons)
+  // ==========================================
+  const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
-
-    console.log("LOG: Attempting newsletter subscription for:", email);
-    try {
-      const response = await api.subscribeToNewsletter(email);
-      console.log("LOG: Subscription successful response:", response);
-
-      setSubscribed(true);
-      setEmail("");
-      setTimeout(() => setSubscribed(false), 5000);
-    } catch (error) {
-      console.error("ERROR: Subscription failed:", error);
-      alert(
-        `Subscription error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    }
+    subscribeMutation.mutate(email);
   };
 
-  const handleSoftDelete = async () => {
-    if (!deleteConfirm) return;
-
-    console.log("LOG: Starting soft-delete for Recipe ID:", deleteConfirm);
-    setIsDeleting(true);
-    try {
-      await api.deleteRecipe(deleteConfirm);
-      console.log("LOG: Recipe marked as deleted in backend.");
-
-      setRecipes((prev) => prev.filter((r) => r.id !== deleteConfirm));
-      setDeleteConfirm(null);
-    } catch (error) {
-      console.error("ERROR: Failed to archive recipe:", error);
-    } finally {
-      setIsDeleting(false);
-    }
+  const handleSoftDelete = () => {
+    if (deleteConfirm === null) return;
+    deleteRecipeMutation.mutate(deleteConfirm);
   };
 
-  const handlesBlogDelete = async (id: string) => {
+  const handlesBlogDelete = (id: number) => {
     if (window.confirm("Move this journal entry to archives?")) {
-      console.log("LOG: Initiating blog archive for ID:", id);
-      try {
-        // Logic check: Ensure deleteBlog exists in your api.ts
-        if (api.deleteBlog) {
-          await api.deleteBlog(id);
-        }
-        console.log("LOG: Blog entry removed from local state.");
-        setBlogs((prev) => prev.filter((b) => b.id !== id));
-      } catch (error) {
-        console.error("ERROR: Failed to archive blog:", error);
-      }
+      deleteBlogMutation.mutate(id);
     }
   };
   return (
     <>
-      <section className="relative h-[100vh] min-h-[700px] flex items-center justify-center overflow-hidden">
+      <section className="relative h-[100vh] min-h-175 flex items-center justify-center overflow-hidden">
         {/* Full-width refined background */}
         <div className="absolute inset-0 z-0">
           <motion.img
@@ -255,9 +266,9 @@ export function Landing() {
                 className="group cursor-pointer"
               >
                 <Link to={`/recipes/${recipe.id}`} className="block">
-                  <div className="aspect-[4/5] overflow-hidden rounded-[2.5rem] mb-8 relative">
+                  <div className="aspect-4/5 overflow-hidden rounded-3xl mb-8 relative">
                     <img
-                      src={recipe.heroImage}
+                      src={recipe.hero_image || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&q=80'}
                       alt={recipe.title}
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     />
@@ -273,7 +284,7 @@ export function Landing() {
                       </div>
                       {(user?.role === "ADMIN" ||
                         user?.role === "CHEF" ||
-                        user?.id === recipe.authorId) && (
+                        user?.id === recipe.author) && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -298,7 +309,7 @@ export function Landing() {
                       <div className="flex items-center gap-2">
                         <Clock size={12} className="text-stone-300" />
                         <span className="text-[9px] font-bold text-stone-400 uppercase tracking-widest">
-                          {recipe.prepTime}
+                          {recipe.prep_time}
                         </span>
                       </div>
                       <div className="w-1 h-1 rounded-full bg-stone-200" />
@@ -366,7 +377,7 @@ export function Landing() {
               <Link
                 key={cat.label}
                 to={cat.path}
-                className="group relative h-80 rounded-[2rem] overflow-hidden cursor-pointer"
+                className="group relative h-80 rounded-3xl overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0">
                   <img
@@ -427,15 +438,15 @@ export function Landing() {
                     ease: [0.19, 1, 0.22, 1],
                   }}
                   viewport={{ once: true }}
-                  className={`group relative cursor-pointer overflow-hidden rounded-[2.5rem] bg-stone-100 ${
+                  className={`group relative cursor-pointer overflow-hidden rounded-3xl bg-stone-100 ${
                     idx % 3 === 0
-                      ? "lg:row-span-2 aspect-[3/4]"
+                      ? "lg:row-span-2 aspect-3/4"
                       : "aspect-square"
                   }`}
                 >
                   <Link to={`/recipes/${item.id}`} className="block h-full">
                     <img
-                      src={item.heroImage}
+                      src={item.hero_image || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&q=80'}
                       alt={item.title}
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                     />
@@ -443,7 +454,7 @@ export function Landing() {
 
                     {(user?.role === "ADMIN" ||
                       user?.role === "CHEF" ||
-                      user?.id === item.authorId) && (
+                      user?.id === item.author) && (
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -534,9 +545,9 @@ export function Landing() {
                 className="group"
               >
                 <Link to={`/blog/all/${post.id}`} className="block">
-                  <div className="aspect-[4/5] overflow-hidden rounded-[2.5rem] mb-10 relative shadow-2xl shadow-stone-200">
+                  <div className="aspect-4/5 overflow-hidden rounded-3xl mb-10 relative shadow-2xl shadow-stone-200">
                     <img
-                      src={post.heroImage}
+                      src={post.hero_image}
                       alt={post.title}
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                     />
@@ -546,7 +557,7 @@ export function Landing() {
                       </span>
                       {(user?.role === "ADMIN" ||
                         user?.role === "CHEF" ||
-                        user?.id === post.authorId) && (
+                        user?.id === post.author) && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();

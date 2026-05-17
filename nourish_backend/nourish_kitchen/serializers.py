@@ -143,11 +143,50 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'recipe', 'blog_post', 'user', 'user_name', 
             'user_avatar', 'user_email', 'user_website', 'rating', 
-            'content', 'type', 'created_at', 'is_read', 'parent', 
-            'is_approved', 'is_anonymous'
+            'content', 'type', 'created_at', 'parent', 'is_approved', 'is_anonymous'
         ]
-        read_only_fields = ['id', 'created_at', 'is_read']
+        extra_kwargs = {
+            'user_name': {'required': False, 'allow_blank': True},
+            'user_avatar': {'required': False, 'allow_blank': True},
+            'user_email': {'required': False, 'allow_null': True},
+            'user_website': {'required': False, 'allow_null': True},
+        }
 
+    def validate(self, attrs):
+        request = self.context.get('request')
+        user = request.user if request else None
+        is_anon = attrs.get('is_anonymous', False)
+
+        # Case A: User wants to hide completely (Logged-in or Guest)
+        if is_anon:
+            attrs['user_name'] = "Anonymous Foodie"
+            attrs['user_avatar'] = "https://api.dicebear.com/7.x/bottts/svg?seed=HiddenGuest"
+            # We don't touch their email/website here; we clear them out during representation output below
+            
+        # Case B: Logged-out Public Guest providing their own info
+        elif not user or user.is_anonymous:
+            if not attrs.get('user_name'):
+                attrs['user_name'] = "Guest Chef" # Fallback if they left it blank
+            if not attrs.get('user_avatar'):
+                # Give them a dynamic avatar based on their name!
+                seed = attrs.get('user_name', 'Guest')
+                attrs['user_avatar'] = f"https://api.dicebear.com/7.x/fun-emoji/svg?seed={seed}"
+
+        return attrs
+
+    def to_representation(self, instance):
+        """Mask identity attributes ONLY if explicitly marked as anonymous"""
+        data = super().to_representation(instance)
+        if instance.is_anonymous:
+            data['user'] = None
+            data['user_name'] = "Anonymous Foodie"
+            data['user_avatar'] = "https://api.dicebear.com/7.x/bottts/svg?seed=HiddenGuest"
+            data['user_email'] = None
+            data['user_website'] = None
+        else:
+            # For public guests, hide their email from other public users to prevent spam scrapers
+            data['user_email'] = None 
+        return data
 class NewsletterSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsletterSubscription

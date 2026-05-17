@@ -1,6 +1,8 @@
 import { useState, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'motion/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -8,6 +10,17 @@ import { ScrollToTop } from './components/ScrollToTop';
 import { SubscriptionPopup } from './components/SubscriptionPopup';
 import { PublicLayout } from './components/PublicLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
+
+// Initialize TanStack Query Client for Global Request Caching
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // Considers server data fresh for 5 minutes
+      refetchOnWindowFocus: false, // Prevents aggressive network hits when re-focusing browser tab
+      retry: 1, // Fail fast on broken API connections
+    },
+  },
+});
 
 // Lazy load pages for performance
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
@@ -133,10 +146,14 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ScrollToTop />
-      <AppContent />
-    </AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ScrollToTop />
+        <AppContent />
+      </AuthProvider>
+      {/* Devtools floating dashboard panel helper */}
+      {/* <ReactQueryDevtools initialIsOpen={false} /> */}
+    </QueryClientProvider>
   );
 }
 
@@ -148,4 +165,3 @@ function Placeholder({ title }: { title: string }) {
     </div>
   );
 }
-

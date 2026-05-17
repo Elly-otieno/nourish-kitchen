@@ -6,7 +6,7 @@ from django.contrib.auth import authenticate
 from django.db.models import Sum
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework_simplejwt.tokens import RefreshToken
-from .permissions import IsAdminRole
+from .permissions import IsAdminRole, IsStaffOrCommentAuthor
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import User, Recipe, UserRole, BlogPost, Comment, NewsletterSubscription
 from .serializers import (
@@ -170,8 +170,12 @@ class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
     
     def get_permissions(self):
-        if self.action in ['approve', 'destroy']:
+        if self.action in ['approve']:
             return [permissions.IsAdminUser()]
+        
+        if self.action in ['destroy', 'update', 'partial_update']:
+            return [IsStaffOrCommentAuthor()]
+        
         return [permissions.AllowAny()]
 
     @action(detail=True, methods=['patch'])
@@ -180,6 +184,99 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment.is_approved = True
         comment.save()
         return Response({'status': 'approved'})
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        is_anon = self.request.data.get('is_anonymous', False)
+
+        if user.is_authenticated:
+            if is_anon:
+                # Logged-in user explicitly going incognito
+                serializer.save(user=user, is_anonymous=True)
+            else:
+                # Standard user comment
+                serializer.save(
+                    user=user,
+                    user_name=user.username,
+                    user_avatar=user.avatar if hasattr(user, 'avatar') else "",
+                    user_email=user.email,
+                    is_anonymous=False
+                )
+        else:
+            # A public guest visitor (NOT forced anonymous unless they checked a box or left fields empty)
+            serializer.save(user=None, is_anonymous=is_anon)
+
+    def _recalculate_recipe_rating(self, recipe_id):
+        """Helper method to update recipe average score when reviews change"""
+        if not recipe_id:
+            return
+        
+        # Calculate new average rating from approved comments containing a rating score
+        stats = Comment.objects.filter(
+            recipe_id=recipe_id, 
+            is_approved=True, 
+            rating__isnull=False
+        ).aggregate(Avg('rating'))
+        
+        new_avg = stats['rating__avg'] or 5.0 # Fallback to 5.0 if no reviews remain
+        
+        # Save directly to the parent recipe instance
+        Recipe.objects.filter(id=recipe_id).update(rating=round(new_avg, 1))
+
+    def update(self, request, *args, **kwargs):
+        """
+        PUT: Full modification of a comment instance.
+        Requires all non-optional serializer fields to be supplied in the payload body.
+        """
+        print(f"LOG: Initiating full update for comment ID: {kwargs.get('pk')}")
+        
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        # Recalculate rating in case they changed their star count review score
+        if instance.recipe:
+            self._recalculate_recipe_rating(instance.recipe.id)
+
+        return Response({
+            'message': 'Comment successfully updated.',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        PATCH: Delta optimization modification.
+        Allows the client to send only the fields that changed (e.g., just the text content).
+        """
+        print(f"LOG: Initiating partial patch for comment ID: {kwargs.get('pk')}")
+        
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        DELETE: Complete database purge of a comment node.
+        """
+        instance = self.get_object()
+        comment_id = instance.id
+        recipe_id = instance.recipe.id if instance.recipe else None
+        
+        print(f"LOG: Purging comment node ID: {comment_id} from database storage tables.")
+        
+        # Execute the core delete hook
+        self.perform_destroy(instance)
+
+        # Side effect: Recalculate rating since a review was eliminated
+        if recipe_id:
+            self._recalculate_recipe_rating(recipe_id)
+
+        return Response({
+            'message': 'Comment permanently removed from system registries.',
+            'id': comment_id
+        }, status=status.HTTP_200_OK)
 
 class StatsViewSet(viewsets.ViewSet):
     # permission_classes = [permissions.IsAdminUser]

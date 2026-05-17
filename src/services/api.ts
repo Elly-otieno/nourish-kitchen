@@ -7,7 +7,7 @@ import {
   UserRole,
 } from "../types";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = "http://127.0.0.1:8000/api";
 
 /**
  * Utility to manage headers and Auth tokens
@@ -160,7 +160,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async restoreBlog(id: string): Promise<Recipe> {
+  async restoreBlog(id: string): Promise<BlogPost> {
     const res = await fetch(`${API_BASE}/posts/${id}/restore/`, {
       method: "POST",
       headers: getHeaders(),
@@ -223,6 +223,38 @@ export const api = {
     return handleResponse(res);
   },
 
+  /**
+   * Invites/Creates a new member inside the registry.
+   */
+  createUser: async (payload: { username: string; email: string; role: UserRole }): Promise<User> => {
+    const res = await fetch(`${API_BASE}/users/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: payload.username,
+        email: payload.email,
+        role: payload.role,
+      }),
+    });
+
+    return handleResponse(res);
+  },
+
+  /**
+   * Deletes a user by their unique identifier.
+   */
+  deleteUser: async (id: string): Promise<void> => {
+    const res = await fetch(`${API_BASE}/users/${id}/`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return handleResponse(res);
+  },
+
   // --- Comments ---
   async createComment(comment: Partial<Comment>): Promise<Comment> {
     const res = await fetch(`${API_BASE}/comments/`, {
@@ -241,9 +273,38 @@ export const api = {
     return handleResponse(res);
   },
 
+  async getComments(id: string): Promise<Comment[]> {
+    const res = await fetch(`${API_BASE}/comments/${id}/`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async getAllComments(id: string): Promise<Comment[]> {
+    const res = await fetch(`${API_BASE}/comments/`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
+  async deleteComment(id: string): Promise<Comment> {
+    const res = await fetch(`${API_BASE}/comments/${id}/delete/`, {
+      method: "DELETE",
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+
   // --- Newsletter ---
+  async getNewsletterSubscribers(): Promise<KitchenStats[]> {
+    const res = await fetch(`${API_BASE}/newsletter/subscribers/`, {
+      headers: getHeaders(),
+    });
+    return handleResponse(res);
+  },
+  
   async subscribeToNewsletter(email: string): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/newsletter/`, {
+    const res = await fetch(`${API_BASE}/newsletter/subscribe/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
@@ -255,7 +316,7 @@ export const api = {
     subject: string,
     content: string,
   ): Promise<{ status: string }> {
-    const res = await fetch(`${API_BASE}/newsletter/send-broadcast/`, {
+    const res = await fetch(`${API_BASE}/newsletter/send/`, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify({ subject, content }),

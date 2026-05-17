@@ -25,7 +25,7 @@ export function AllBlogs() {
       console.log("LOG: Fetching blogs for listing...");
       try {
         const data = await api.getBlogs();
-        console.log("LOG: Blogs loaded. Count:", data.length);
+        console.log("LOG: Blogs loaded. Blogs:", data);
         setBlogs(data);
       } catch (error) {
         console.error("ERROR: Failed to load blogs:", error);
@@ -132,7 +132,7 @@ export function AllBlogs() {
             Array.from({ length: 8 }).map((_, i) => (
               <div
                 key={i}
-                className="aspect-[4/5] bg-stone-100 rounded-[2rem] animate-pulse"
+                className="aspect-4/5 bg-stone-100 rounded-2xl animate-pulse"
               />
             ))
           ) : (
@@ -145,15 +145,15 @@ export function AllBlogs() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   transition={{ delay: idx * 0.05 }}
-                  className="flex flex-col bg-white rounded-[2rem] overflow-hidden border border-stone-100 transition-all hover:shadow-xl hover:shadow-primary/5 group h-full"
+                  className="flex flex-col bg-white rounded-2xl overflow-hidden border border-stone-100 transition-all hover:shadow-xl hover:shadow-primary/5 group h-full"
                 >
                   <Link
                     to={`/blog/all/${blog.id}`}
                     className="flex flex-col h-full"
                   >
-                    <div className="aspect-[4/3] overflow-hidden relative">
+                    <div className="aspect-4/3 overflow-hidden relative">
                       <img
-                        src={blog.heroImage}
+                        src={blog.hero_image}
                         alt={blog.title}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
@@ -173,7 +173,7 @@ export function AllBlogs() {
                           <Calendar size={12} /> {blog.date}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Clock size={12} /> {blog.readingTime}
+                          <Clock size={12} /> {blog.reading_time}
                         </div>
                       </div>
                       <h3 className="font-serif text-xl font-bold text-stone-900 mb-4 leading-tight group-hover:text-emerald-800 transition-colors">
