@@ -69,9 +69,9 @@ export function Archives() {
 
       // Update local state
       if (type === "recipe") {
-        setRecipes((prev) => prev.filter((r) => r.id !== id));
+        setRecipes((prev) => prev.filter((r) => String(r.id) !== id));
       } else {
-        setBlogs((prev) => prev.filter((b) => b.id !== id));
+        setBlogs((prev) => prev.filter((b) => String(b.id) !== id));
       }
     } catch (error) {
       console.error(`ERROR: Permanent delete failed for ${type}:`, error);
@@ -98,9 +98,9 @@ export function Archives() {
       console.log(`LOG: ${type} ${id} restored.`);
       // Filter out of archive list
       if (type === "recipe") {
-        setRecipes((prev) => prev.filter((r) => r.id !== id));
+        setRecipes((prev) => prev.filter((r) => String(r.id) !== id));
       } else {
-        setBlogs((prev) => prev.filter((b) => b.id !== id));
+        setBlogs((prev) => prev.filter((b) => String(b.id) !== id));
       }
     } catch (error) {
       console.error(`ERROR: Restore failed for ${type}:`, error);
@@ -202,11 +202,11 @@ export function Archives() {
                       key={recipe.id}
                       item={recipe}
                       type="recipe"
-                      onRestore={() => handleRestore(recipe.id, "recipe")}
+                      onRestore={() => handleRestore(String(recipe.id), "recipe")}
                       onDelete={() =>
-                        setConfirmDelete({ id: recipe.id, type: "recipe" })
+                        setConfirmDelete({ id: String(recipe.id), type: "recipe" })
                       }
-                      isProcessing={actionLoading === recipe.id}
+                      isProcessing={actionLoading === String(recipe.id)}
                     />
                   ))
                 ) : (
@@ -223,11 +223,11 @@ export function Archives() {
                       key={blog.id}
                       item={blog}
                       type="blog"
-                      onRestore={() => handleRestore(blog.id, "blog")}
+                      onRestore={() => handleRestore(String(blog.id), "blog")}
                       onDelete={() =>
-                        setConfirmDelete({ id: blog.id, type: "blog" })
+                        setConfirmDelete({ id: String(blog.id), type: "blog" })
                       }
-                      isProcessing={actionLoading === blog.id}
+                      isProcessing={actionLoading === String(blog.id)}
                     />
                   ))
                 ) : (
@@ -254,7 +254,7 @@ export function Archives() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-md p-10 rounded-[2rem] soft-shadow"
+              className="relative bg-white w-full max-w-md p-10 rounded-4xl soft-shadow"
             >
               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-8 mx-auto">
                 <AlertCircle className="text-red-500" size={32} />
@@ -318,12 +318,12 @@ function ArchiveCard({
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className="bg-white rounded-[2rem] overflow-hidden border border-stone-100 soft-shadow group"
+      className="bg-white rounded-4xl overflow-hidden border border-stone-100 soft-shadow group"
     >
       <div className="flex flex-col sm:flex-row h-full">
         <div className="w-full sm:w-40 h-40 sm:h-auto overflow-hidden bg-stone-100 shrink-0">
           <img
-            src={imgUrl}
+            src={imgUrl || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&q=80'}
             alt={title}
             className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
             referrerPolicy="no-referrer"
@@ -346,7 +346,7 @@ function ArchiveCard({
             </h4>
             <p className="font-sans text-xs text-stone-400">
               {isRecipe ? "Heritage Recipe" : "Journal Entry"} • By{" "}
-              {item.authorName}
+              {item.author_name}
             </p>
           </div>
 

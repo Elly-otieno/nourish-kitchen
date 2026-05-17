@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from nourish_kitchen.views import (
     UserViewSet, RecipeViewSet, BlogPostViewSet, 
-    CommentViewSet, StatsViewSet, ArchiveViewSet, NewsletterViewSet
+    CommentViewSet, StatsViewSet, AuthViewSet, ArchiveViewSet, NewsletterViewSet
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -14,6 +14,7 @@ router.register(r'users', UserViewSet)
 router.register(r'recipes', RecipeViewSet)
 router.register(r'posts', BlogPostViewSet)
 router.register(r'comments', CommentViewSet)
+router.register(r'auth', AuthViewSet, basename='auth')
 
 urlpatterns = [
     path('', include(router.urls)),

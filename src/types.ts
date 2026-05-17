@@ -1,7 +1,7 @@
 export type UserRole = 'ADMIN' | 'CHEF' | 'USER';
 
 export interface User {
-  id: number; 
+  id: string; 
   username: string;
   email: string;
   role: UserRole;
@@ -65,7 +65,7 @@ export interface BlogPost {
   hero_image: string;
   date: string; 
   reading_time: string; 
-  syndication_links: string[]; 
+  syndication_links: SyndicationLink[];
   is_published: boolean;
   bookmarked_by: number[]; 
   is_deleted: boolean;
@@ -90,6 +90,7 @@ export interface Comment {
   parent?: number | null; 
   is_approved: boolean;
   is_anonymous: boolean;
+  replies?: (Comment | CommentReplyResponse)[];
 }
 
 export interface KitchenStats {
@@ -100,4 +101,28 @@ export interface KitchenStats {
   total_blogs: number;
   total_users: number;
   total_subscribers: number;
+}
+
+export interface NewsletterSendResponse {
+  status: string;
+  count: number;
+}
+
+export interface Subscriber {
+  email: string;
+  date: string;
+}
+
+export interface SyndicationLink {
+  site: string;
+  url: string;
+}
+
+
+export interface CommentReplyResponse {
+  id: number;
+  parent_id: number;
+  author_name: string;
+  content: string;
+  created_at: string;
 }

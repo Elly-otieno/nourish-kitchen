@@ -8,7 +8,6 @@ export function Cookies() {
           <h1 className="font-serif text-5xl font-bold">Cookie Policy</h1>
         </div>
       </section>
-
       <section className="py-24 max-w-4xl mx-auto px-6 md:px-12">
         <div className="prose prose-stone prose-lg prose-headings:font-serif prose-headings:text-emerald-950 prose-p:text-stone-500 prose-p:leading-relaxed">
           <motion.div

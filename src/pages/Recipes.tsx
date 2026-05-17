@@ -1,51 +1,66 @@
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RecipeCard } from '../components/RecipeCard';
 import { Search, Filter, X, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
-import { Recipe } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 
 export function Recipes() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  
   const categoryFilter = searchParams.get('cat');
   const searchQuery = searchParams.get('q') || '';
   
+  // Controlled input value state stays local to allow typing fluidity
   const [searchTerm, setSearchTerm] = useState(searchQuery);
   const [visibleCount, setVisibleCount] = useState(6);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    async function loadRecipes() {
-      setLoading(true);
-      try {
-        const data = await api.getRecipes({ q: searchQuery, cat: categoryFilter || undefined });
-        setRecipes(data);
-      } catch (error) {
-        console.error('Failed to load recipes:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadRecipes();
-  }, [searchQuery, categoryFilter]);
-
+  // Sync internal input box text if the URL search param changes globally
   useEffect(() => {
     setSearchTerm(searchQuery);
   }, [searchQuery]);
 
+  const { 
+    data: recipes = [], 
+    isLoading: loading,
+    isPlaceholderData 
+  } = useQuery({
+    queryKey: ['recipes', { q: searchQuery, cat: categoryFilter }],
+    queryFn: () => api.getRecipes({ q: searchQuery, cat: categoryFilter || undefined }),
+    placeholderData: (previousData) => previousData, // Keeps UI smooth/stable during fresh filter re-fetches
+  });
+
+  // Handle backend soft-delete/archiving process safely
+  const { 
+    mutate: executeSoftDelete, 
+    isPending: isDeleting 
+  } = useMutation({
+    mutationFn: (recipeId: string) => api.deleteRecipe(recipeId),
+    onSuccess: () => {
+      // Invalidate target cache lines so the main viewport updates immediately
+      queryClient.invalidateQueries({ queryKey: ['recipes'] });
+      setDeleteConfirm(null);
+    },
+    onError: (error) => {
+      console.error('Failed to archive recipe:', error);
+    }
+  });
+
+  // Derived pagination boundaries computed from cached query payloads
   const displayRecipes = recipes.slice(0, visibleCount);
   const hasMore = visibleCount < recipes.length;
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setSearchTerm(val);
+    setVisibleCount(6); // Reset pagination index on dynamic type search operations
+
     if (val) {
       setSearchParams({ q: val, ...(categoryFilter ? { cat: categoryFilter } : {}) });
     } else {
@@ -55,23 +70,15 @@ export function Recipes() {
     }
   };
 
-  const handleSoftDelete = async () => {
+  const handleSoftDelete = () => {
     if (!deleteConfirm) return;
-    setIsDeleting(true);
-    try {
-      await api.deleteRecipe(deleteConfirm);
-      setRecipes(prev => prev.filter(r => r.id !== deleteConfirm));
-      setDeleteConfirm(null);
-    } catch (error) {
-      console.error('Failed to archive recipe:', error);
-    } finally {
-      setIsDeleting(false);
-    }
+    executeSoftDelete(deleteConfirm);
   };
 
   const clearFilters = () => {
     setSearchParams({});
     setSearchTerm('');
+    setVisibleCount(6);
   };
 
   return (
@@ -84,7 +91,7 @@ export function Recipes() {
       <header className="mb-12">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
-            <h2 className="font-serif text-4xl md:text-6xl font-bold text-primary mb-4 tracking-tight">
+            <h2 className="font-serif text-4xl md:text-6xl font-bold text-emerald-950 mb-4 tracking-tight">
               {categoryFilter ? `${categoryFilter.charAt(0).toUpperCase() + categoryFilter.slice(1)} Collection` : 'The Collection'}
             </h2>
             <p className="font-serif italic text-stone-400 text-lg md:text-xl max-w-xl">Every recipe ever crafted in our kitchen, shared with love.</p>
@@ -93,7 +100,7 @@ export function Recipes() {
           {(categoryFilter || searchTerm) && (
             <button 
               onClick={clearFilters}
-              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#b58e3e] hover:text-emerald-700 transition-colors"
+              className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#b58e3e] hover:text-emerald-700 transition-colors cursor-pointer"
             >
               Clear All Filters <X size={14} />
             </button>
@@ -109,12 +116,12 @@ export function Recipes() {
             placeholder="Search recipes, ingredients, techniques..." 
             value={searchTerm}
             onChange={handleSearchChange}
-            className="w-full bg-white border border-stone-100 rounded-[2rem] py-5 pl-14 pr-6 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all font-sans text-sm shadow-sm"
+            className="w-full bg-white border border-stone-100 rounded-4xl py-5 pl-14 pr-6 focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-500 transition-all font-sans text-sm shadow-sm"
           />
         </div>
         <button 
           onClick={() => setIsFilterOpen(!isFilterOpen)}
-          className={`flex items-center justify-center gap-3 px-10 py-5 rounded-[2rem] font-bold text-[11px] uppercase tracking-[0.2em] transition-all border shadow-sm ${
+          className={`flex items-center justify-center gap-3 px-10 py-5 rounded-4xl font-bold text-[11px] uppercase tracking-[0.2em] transition-all border shadow-sm cursor-pointer ${
             isFilterOpen ? 'bg-emerald-950 text-white border-emerald-950' : 'bg-white text-stone-600 border-stone-100 hover:bg-stone-50'
           }`}
         >
@@ -137,8 +144,11 @@ export function Recipes() {
                 {['Breakfast', 'Dinner', 'Dessert', 'Heritage', 'Vegan', 'Vegetarian', 'Vibrant'].map(cat => (
                   <button
                     key={cat}
-                    onClick={() => setSearchParams({ ...Object.fromEntries(searchParams), cat: cat.toLowerCase() })}
-                    className={`px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all border ${
+                    onClick={() => {
+                      setVisibleCount(6); // Reset window limit when moving options
+                      setSearchParams({ ...Object.fromEntries(searchParams), cat: cat.toLowerCase() });
+                    }}
+                    className={`px-6 py-3 rounded-full text-xs font-bold uppercase tracking-widest transition-all border cursor-pointer ${
                       categoryFilter?.toLowerCase() === cat.toLowerCase()
                         ? 'bg-emerald-600 text-white border-emerald-600'
                         : 'bg-white text-stone-500 border-stone-200 hover:border-emerald-200'
@@ -153,10 +163,11 @@ export function Recipes() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12">
+      {/* Grid displays structural skeleton items when data finishes querying initially */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12 ${isPlaceholderData ? 'opacity-70 transition-opacity' : ''}`}>
         {loading ? (
           Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="aspect-[4/5] bg-stone-100 rounded-[40px] animate-pulse" />
+            <div key={i} className="aspect-4/5 bg-stone-100 rounded-[40px] animate-pulse" />
           ))
         ) : (
           displayRecipes.map((recipe, idx) => (
@@ -169,15 +180,15 @@ export function Recipes() {
               transition={{ delay: (idx % 3) * 0.1 }}
             >
               <RecipeCard 
-                id={recipe.id} 
-                image={recipe.heroImage} 
-                category={recipe.categories[0]} 
-                title={recipe.title} 
-                time={recipe.prepTime} 
-                rating={recipe.rating} 
-                likedBy={recipe.likedBy}
-                showAdminActions={user?.role === 'ADMIN' || user?.role === 'CHEF' || user?.id === recipe.authorId}
-                onDelete={() => setDeleteConfirm(recipe.id)}
+                id={String(recipe.id)}
+                image={recipe.hero_image || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&q=80'}
+                category={recipe.categories[0]}
+                title={recipe.title}
+                time={recipe.prep_time}
+                rating={recipe.rating}
+                likedBy={recipe.liked_by?.map(id => String(id)) || []}
+                showAdminActions={user?.role === 'ADMIN' || user?.role === 'CHEF' || user?.id === String(recipe.author)}
+                onDelete={() => setDeleteConfirm(String(recipe.id))}
               />
             </motion.div>
           ))
@@ -189,7 +200,7 @@ export function Recipes() {
           <p className="text-stone-300 font-serif text-2xl italic">No recipes found in your current view.</p>
           <button 
             onClick={clearFilters}
-            className="mt-6 text-emerald-600 font-bold uppercase text-[10px] tracking-widest hover:underline"
+            className="mt-6 text-emerald-600 font-bold uppercase text-[10px] tracking-widest hover:underline cursor-pointer"
           >
             Reset All Filters
           </button>
@@ -200,14 +211,14 @@ export function Recipes() {
         <div className="mt-24 text-center">
           <button 
             onClick={() => setVisibleCount(visibleCount + 6)}
-            className="px-16 py-6 bg-white border-2 border-emerald-950 text-emerald-950 rounded-[2rem] font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-emerald-950 hover:text-white transition-all shadow-xl active:scale-[0.98]"
+            className="px-16 py-6 bg-white border-2 border-emerald-950 text-emerald-950 rounded-4xl font-bold text-[11px] uppercase tracking-[0.3em] hover:bg-emerald-950 hover:text-white transition-all shadow-xl active:scale-[0.98] cursor-pointer"
           >
             Load More Recipes
           </button>
         </div>
       )}
 
-      {/* Confirmation Modal */}
+      {/* Confirmation Drawer/Modal Overlay */}
       <AnimatePresence>
         {deleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -225,9 +236,9 @@ export function Recipes() {
               className="relative bg-white w-full max-w-md p-10 rounded-[2.5rem] soft-shadow"
             >
               <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-8 mx-auto">
-                <AlertCircle className="text-primary" size={32} />
+                <AlertCircle className="text-emerald-950" size={32} />
               </div>
-              <h3 className="font-serif text-3xl text-primary text-center mb-4 leading-tight">Move to archives?</h3>
+              <h3 className="font-serif text-3xl text-emerald-950 text-center mb-4 leading-tight">Move to archives?</h3>
               <p className="font-sans text-stone-500 text-center mb-10 leading-relaxed">
                 This recipe will be removed from the public list but preserved in the archives. You can restore it later if needed.
               </p>
@@ -235,13 +246,15 @@ export function Recipes() {
               <div className="flex gap-4">
                 <button 
                   onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 py-4 px-6 rounded-2xl font-bold text-sm tracking-wide text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors"
+                  disabled={isDeleting}
+                  className="flex-1 py-4 px-6 rounded-2xl font-bold text-sm tracking-wide text-stone-600 bg-stone-100 hover:bg-stone-200 transition-colors cursor-pointer disabled:opacity-50"
                 >
                   CANCEL
                 </button>
                 <button 
                   onClick={handleSoftDelete}
-                  className="flex-1 py-4 px-6 rounded-2xl font-bold text-sm tracking-wide bg-primary text-white hover:bg-stone-800 transition-all flex items-center justify-center gap-2"
+                  disabled={isDeleting}
+                  className="flex-1 py-4 px-6 rounded-2xl font-bold text-sm tracking-wide bg-emerald-950 text-white hover:bg-emerald-900 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   {isDeleting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
                   ARCHIVE

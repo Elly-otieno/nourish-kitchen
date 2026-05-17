@@ -152,7 +152,7 @@ export default function App() {
         <AppContent />
       </AuthProvider>
       {/* Devtools floating dashboard panel helper */}
-      {/* <ReactQueryDevtools initialIsOpen={false} /> */}
+      <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
   );
 }

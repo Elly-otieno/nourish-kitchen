@@ -43,7 +43,7 @@ const handleSoftDelete = async () => {
 
     // Update local state to hide the deleted item
     setBlogs(prev => {
-      const updated = prev.filter(b => b.id !== deleteConfirm);
+      const updated = prev.filter(b => String(b.id) !== deleteConfirm);
       console.log('LOG: Local state updated. Blogs remaining:', updated.length);
       return updated;
     });
@@ -91,7 +91,7 @@ const handleSoftDelete = async () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
             {loading ? (
               Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="aspect-[16/9] bg-stone-100 rounded-[2rem] animate-pulse" />
+                <div key={i} className="aspect-video bg-stone-100 rounded-4xl animate-pulse" />
               ))
             ) : (
               <AnimatePresence mode="popLayout">
@@ -103,11 +103,11 @@ const handleSoftDelete = async () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ delay: idx * 0.1 }}
-                    className="group flex flex-col bg-white rounded-[2rem] overflow-hidden border border-stone-100 shadow-sm hover:shadow-xl transition-all duration-500 relative"
+                    className="group flex flex-col bg-white rounded-4xl overflow-hidden border border-stone-100 shadow-sm hover:shadow-xl transition-all duration-500 relative"
                   >
                     <Link to={`/blog/all/${blog.id}`} className="flex-1 flex flex-col">
-                      <div className="aspect-[16/9] overflow-hidden relative">
-                        <img src={blog.heroImage} alt={blog.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" referrerPolicy="no-referrer" />
+                      <div className="aspect-video overflow-hidden relative">
+                        <img src={blog.hero_image} alt={blog.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" referrerPolicy="no-referrer" />
                         <div className="absolute top-4 left-4">
                           <span className="bg-white/90 backdrop-blur-md text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-sm">
                             Latest
@@ -117,7 +117,7 @@ const handleSoftDelete = async () => {
                       <div className="p-8 flex-1 flex flex-col">
                         <div className="flex items-center gap-4 text-[10px] text-stone-400 font-bold uppercase tracking-widest mb-4">
                           <span className="flex items-center gap-1.5"><Calendar size={12} className="text-primary/50" /> {blog.date}</span>
-                          <span className="flex items-center gap-1.5"><User size={12} className="text-primary/50" /> {blog.authorName}</span>
+                          <span className="flex items-center gap-1.5"><User size={12} className="text-primary/50" /> {blog.author_name}</span>
                         </div>
                         <h3 className="font-serif text-2xl font-bold text-stone-900 mb-4 group-hover:text-primary transition-colors leading-tight">
                           {blog.title}
@@ -128,9 +128,9 @@ const handleSoftDelete = async () => {
                       </div>
                     </Link>
 
-                    {user && (user.role === 'ADMIN' || user.id === blog.authorId) && (
+                    {user && (user.role === 'ADMIN' || user.id === String(blog.author)) && (
                       <button 
-                        onClick={() => setDeleteConfirm(blog.id)}
+                        onClick={() => setDeleteConfirm(String(blog.id))}
                         className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 backdrop-blur-md text-stone-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100 z-10"
                       >
                         <Trash2 size={16} />
@@ -141,7 +141,7 @@ const handleSoftDelete = async () => {
                       <div className="pt-6 border-t border-stone-50">
                         <p className="text-[10px] font-bold text-stone-300 uppercase tracking-widest mb-3">Read On</p>
                         <div className="flex flex-wrap gap-3">
-                          {blog.syndicationLinks.map(link => (
+                          {blog.syndication_links.map(link => (
                             <a 
                               key={link.site}
                               href={link.url}

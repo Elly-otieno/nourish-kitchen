@@ -55,7 +55,7 @@ export function BlogDetail() {
     queryFn: async () => {
       console.log(`LOG: Fetching individual blog data for ID: ${blogId}`);
       try {
-        return await api.getBlog(blogId);
+        return await api.getBlog(String(blogId));
       } catch (error) {
         console.error("ERROR: Failed to load blog post:", error);
         navigate("/blog/all");
@@ -78,7 +78,7 @@ export function BlogDetail() {
   const toggleBookmarkMutation = useMutation({
     mutationFn: async () => {
       if (!post || !user) return null;
-      return await api.toggleBookmarkBlog(post.id, user.id);
+      return await api.toggleBookmarkBlog(String(post.id));
     },
     onSuccess: (updatedPost) => {
       if (!updatedPost || !user) return;
@@ -87,7 +87,7 @@ export function BlogDetail() {
       queryClient.setQueryData(["blog", blogId], updatedPost);
 
       // Explicitly check bookmarked_by (snake_case from backend interface)
-      const isNowBookmarked = updatedPost.bookmarked_by?.includes(user.id) || false;
+      const isNowBookmarked = updatedPost.bookmarked;
       setIsBookmarked(isNowBookmarked);
       console.log("LOG: Bookmark status updated in cache to:", isNowBookmarked);
 
@@ -101,7 +101,7 @@ export function BlogDetail() {
 
   // Soft Delete Blog Mutation
   const deleteBlogMutation = useMutation({
-    mutationFn: (idToDelete: number) => api.deleteBlog(idToDelete),
+    mutationFn: (idToDelete: number) => api.deleteBlog(String(idToDelete)),
     onSuccess: () => {
       console.log("LOG: Archive successful. Triggering notification and redirect.");
       setNotification({
@@ -130,7 +130,7 @@ export function BlogDetail() {
   // Syncing UI's local bookmarked flag state whenever data loads
   useEffect(() => {
     if (post && user) {
-      setIsBookmarked(post.bookmarked_by?.includes(user.id) || false);
+      setIsBookmarked(post.bookmarked_by?.includes(Number(user.id)) || false);
     }
   }, [post, user]);
 
@@ -312,7 +312,7 @@ export function BlogDetail() {
               <div className="flex flex-wrap items-center gap-8 text-white/80 border-t border-white/10 pt-10 mt-4 font-sans">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-xs font-black shadow-inner">
-                    {post.author_name[0]}
+                    {(post.author_name || 'Anonymous')[0]}
                   </div>
                   <div className="flex flex-col">
                     <span className="text-xs text-white/40 uppercase tracking-widest mb-0.5">
@@ -329,7 +329,7 @@ export function BlogDetail() {
                 </div>
                 <div className="flex items-center gap-3 text-sm">
                   <Clock size={18} className="text-emerald-400" />
-                  <span className="font-bold">{post.readingTime}</span>
+                  <span className="font-bold">{post.reading_time}</span>
                 </div>
                 <div className="flex items-center gap-6 ml-auto print:hidden">
                   <button
@@ -347,7 +347,7 @@ export function BlogDetail() {
                       className={isBookmarked ? "fill-current" : ""}
                     />
                   </button>
-                  {(isChef || user?.id === post.author_id || isAdmin) && (
+                  {(isChef || user?.id === String(post.author) || isAdmin) && (
                     <button
                       onClick={() => navigate(`/blog/all/${post.id}/edit`)}
                       className="hover:text-emerald-300 transition-all hover:scale-110 cursor-pointer text-white/80"
@@ -356,7 +356,7 @@ export function BlogDetail() {
                       <Pencil size={24} />
                     </button>
                   )}
-                  {(isChef || user?.id === post.author_id || isAdmin) && (
+                  {(isChef || user?.id === String(post.author) || isAdmin) && (
                     <button
                       onClick={() => setShowDeleteConfirm(true)}
                       className="hover:text-red-400 transition-all hover:scale-110 cursor-pointer text-white/60"
@@ -499,7 +499,7 @@ export function BlogDetail() {
 
           <section className="mt-24 pt-0 border-t border-stone-100 max-w-4xl mx-auto print:hidden">
             {/* <NewsletterSection /> */}
-            <CommentsAndReviewsSection entityId={post.id} />
+            <CommentsAndReviewsSection entityId={String(post.id)} />
             <RecommendedSection type="blog" />
           </section>
         </div>

@@ -64,21 +64,21 @@ export function EditRecipe() {
         const data = await api.getRecipe(id);
         
         // Permission check: Only author or staff (ADMIN/CHEF) can edit
-        if (user && data.authorId !== user.id && user.role === 'USER') {
+        if (user && String(data.author) !== user.id && user.role === 'USER') {
           navigate(`/recipes/${id}`);
           return;
         }
 
         setTitle(data.title);
         setStory(data.story || '');
-        setProTip(data.proTip || '');
-        setYoutubeLink(data.youtubeLink || '');
-        setPrepTime(data.prepTime);
+        setProTip(data.pro_tip || '');
+        setYoutubeLink(data.youtube_link || '');
+        setPrepTime(data.prep_time);
         setCalories(data.calories || '');
-        setSpiceLevel(data.spiceLevel || 'Mild');
+        setSpiceLevel(data.spice_level || 'Mild');
         setCategories(data.categories || []);
         setCuisine(data.cuisine);
-        setHeroImage(data.heroImage);
+        setHeroImage(data.hero_image);
         setIngredients(data.ingredients || []);
         setSteps(data.steps || []);
         
@@ -107,27 +107,27 @@ export function EditRecipe() {
   };
 
   const addIngredient = () => {
-    setIngredients([...ingredients, { id: Math.random().toString(), qty: '', unit: 'Grams', category: 'Main', name: '' }]);
+    setIngredients([...ingredients, { id: Date.now() + Math.floor(Math.random() * 1000), qty: '', unit: 'Grams', category: 'Main', name: '' }]);
   };
 
   const removeIngredient = (id: string) => {
-    setIngredients(ingredients.filter(ing => ing.id !== id));
+    setIngredients(ingredients.filter(ing => String(ing.id) !== id));
   };
 
   const updateIngredient = (id: string, field: keyof Ingredient, value: string) => {
-    setIngredients(ingredients.map(ing => ing.id === id ? { ...ing, [field]: value } : ing));
+    setIngredients(ingredients.map(ing => String(ing.id) === id ? { ...ing, [field]: value } : ing));
   };
 
   const addStep = () => {
-    setSteps([...steps, { id: Math.random().toString(), title: '', description: '' }]);
+    setSteps([...steps, { id: Date.now() + Math.floor(Math.random() * 1000), title: '', description: '' }]);
   };
 
   const removeStep = (id: string) => {
-    setSteps(steps.filter(step => step.id !== id));
+    setSteps(steps.filter(step => String(step.id) !== id));
   };
 
   const updateStep = (id: string, field: keyof Step, value: string) => {
-    setSteps(steps.map(step => step.id === id ? { ...step, [field]: value } : step));
+    setSteps(steps.map(step => String(step.id) === id ? { ...step, [field]: value } : step));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -369,7 +369,7 @@ export function EditRecipe() {
                 className="w-full resize-none border-b border-stone-100 bg-transparent py-4 font-sans text-lg leading-relaxed text-stone-600 placeholder:text-stone-300 focus:border-[#b58e3e] focus:outline-none transition-colors"
               />
             ) : (
-              <div className="min-h-[200px] py-4 prose prose-stone max-w-none">
+              <div className="min-h-50 py-4 prose prose-stone max-w-none">
                 <div className="font-sans text-stone-600 leading-relaxed text-lg italic whitespace-pre-line">
                   <ReactMarkdown>{story || "Your story will appear here..."}</ReactMarkdown>
                 </div>
@@ -385,7 +385,7 @@ export function EditRecipe() {
             <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="group relative flex min-h-[280px] md:h-96 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#b58e3e]/30 bg-stone-50/50 hover:bg-emerald-50 transition-colors p-8"
+              className="group relative flex min-h-70 md:h-96 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#b58e3e]/30 bg-stone-50/50 hover:bg-emerald-50 transition-colors p-8"
             >
               {heroImage ? (
                 <img src={heroImage} alt="Preview" className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -428,7 +428,7 @@ export function EditRecipe() {
                       type="text" 
                       placeholder="250"
                       value={ing.qty}
-                      onChange={(e) => updateIngredient(ing.id, 'qty', e.target.value)}
+                      onChange={(e) => updateIngredient(String(ing.id), 'qty', e.target.value)}
                       className="w-full border-b border-stone-100 bg-transparent py-2 font-sans text-stone-600 focus:border-[#b58e3e] focus:outline-none"
                     />
                   </div>
@@ -438,7 +438,7 @@ export function EditRecipe() {
                       type="text" 
                       placeholder="Grams"
                       value={ing.unit}
-                      onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)}
+                      onChange={(e) => updateIngredient(String(ing.id), 'unit', e.target.value)}
                       className="w-full border-b border-stone-100 bg-transparent py-2 font-sans text-stone-600 focus:border-[#b58e3e] focus:outline-none"
                     />
                   </div>
@@ -448,13 +448,13 @@ export function EditRecipe() {
                       type="text" 
                       placeholder="Organic All-Purpose Flour"
                       value={ing.name}
-                      onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)}
+                      onChange={(e) => updateIngredient(String(ing.id), 'name', e.target.value)}
                       className="w-full border-b border-stone-100 bg-transparent py-2 font-serif text-lg md:text-xl text-primary focus:border-[#b58e3e] focus:outline-none"
                     />
                   </div>
                   <div className="w-full sm:col-span-1 flex justify-end">
                     <button 
-                      onClick={() => removeIngredient(ing.id)}
+                      onClick={() => removeIngredient(String(ing.id))}
                       className="text-stone-200 hover:text-red-500 transition-colors p-2"
                     >
                       <Trash2 size={18} />
@@ -482,7 +482,7 @@ export function EditRecipe() {
             <AnimatePresence mode="popLayout">
               {steps.map((step, idx) => (
                 <motion.div 
-                  key={step.id}
+                  key={String(step.id)}
                   layout
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -498,14 +498,14 @@ export function EditRecipe() {
                         type="text"
                         placeholder="Step Title (e.g. Master the Spice Bloom)"
                         value={step.title}
-                        onChange={(e) => updateStep(step.id, 'title', e.target.value)}
+                        onChange={(e) => updateStep(String(step.id), 'title', e.target.value)}
                         className="w-full border-b border-stone-100 bg-transparent py-2 font-serif text-xl md:text-2xl font-semibold text-primary focus:border-[#b58e3e] focus:outline-none transition-colors"
                       />
                       <textarea 
                         rows={3}
                         placeholder={idx === 0 ? "Describe the first step of the process in detail..." : "Describe the next step..."}
                         value={step.description}
-                        onChange={(e) => updateStep(step.id, 'description', e.target.value)}
+                        onChange={(e) => updateStep(String(step.id), 'description', e.target.value)}
                         className="w-full resize-none border-b border-stone-50 bg-transparent py-2 font-sans text-base md:text-lg text-stone-600 focus:border-[#b58e3e] focus:outline-none transition-colors leading-relaxed"
                       />
                     </div>
@@ -514,7 +514,7 @@ export function EditRecipe() {
                         <ImageIcon size={12} /> Add Detail Photo
                       </button>
                       <button 
-                        onClick={() => removeStep(step.id)}
+                        onClick={() => removeStep(String(step.id))}
                         className="md:hidden text-red-300 px-4 py-2 text-xs font-bold uppercase tracking-widest"
                       >
                         Delete Step
@@ -522,7 +522,7 @@ export function EditRecipe() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => removeStep(step.id)}
+                    onClick={() => removeStep(String(step.id))}
                     className="hidden md:block text-stone-100 hover:text-red-500 transition-colors p-px mt-4"
                   >
                     <X size={24} />

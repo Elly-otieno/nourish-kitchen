@@ -16,7 +16,7 @@ export function Comments() {
 
   const loadData = async () => {
     try {
-      const data = await api.getComments();
+      const data = await api.getAllComments();
       setComments(data);
     } catch (error) {
       console.error('Failed to load comments:', error);
@@ -47,33 +47,35 @@ export function Comments() {
     }
   };
 
-  const handleReplySubmit = async (comment: Comment) => {
-    if (!replyText.trim() || !user) return;
-    setIsSubmitting(true);
-    try {
-      await api.createComment({
-        entityId: comment.entityId,
-        userName: user.name,
-        userAvatar: user.avatar || 'https://images.unsplash.com/photo-1577214190547-73bed629161a?auto=format&fit=crop&q=80&w=100',
-        content: replyText,
-        parentId: comment.id
-      });
-      setReplyText('');
-      setReplyToId(null);
-      loadData();
-    } catch (error) {
-      console.error('Reply failed:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const handleReplySubmit = async (parentCommentId: number) => {
+  if (!replyText.trim()) return;
+  
+  setIsSubmitting(true);
+  try {
+    const newReply = await api.replyToComment(parentCommentId, replyText);
+    
+    setComments((prevComments) =>
+      prevComments.map((c) =>
+        c.id === parentCommentId
+          ? { ...c, replies: [...(c.replies || []), newReply] }
+          : c
+      )
+    );
+    
+    setReplyText(""); // Clear output text field
+  } catch (err) {
+    console.error("Failed to post your reply:", err);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const filteredComments = comments.filter(c => 
     c.content.toLowerCase().includes(search.toLowerCase()) ||
-    c.userName.toLowerCase().includes(search.toLowerCase())
+    c.user_name.toLowerCase().includes(search.toLowerCase())
   );
 
-  const pendingCount = comments.filter(c => !c.isApproved).length;
+  const pendingCount = comments.filter(c => !c.is_approved).length;
 
   return (
     <motion.div 
@@ -96,9 +98,9 @@ export function Comments() {
         </div>
       </header>
 
-      <div className="bg-white rounded-[2rem] soft-shadow border border-stone-100 overflow-hidden">
+      <div className="bg-white rounded-4xl soft-shadow border border-stone-100 overflow-hidden">
         <div className="p-6 border-b border-stone-100 bg-stone-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="relative w-full sm:w-auto sm:min-w-[300px]">
+          <div className="relative w-full sm:w-auto sm:min-w-75">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
             <input 
               type="text" 
@@ -117,13 +119,13 @@ export function Comments() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: index * 0.05 }}
-              className={`p-8 md:p-10 flex flex-col md:flex-row gap-8 transition-colors group ${!item.isApproved ? 'bg-amber-50/20' : 'hover:bg-stone-50/30'}`}
+              className={`p-8 md:p-10 flex flex-col md:flex-row gap-8 transition-colors group ${!item.is_approved ? 'bg-amber-50/20' : 'hover:bg-stone-50/30'}`}
             >
-              <div className="flex-shrink-0 flex md:flex-col items-center gap-4">
+              <div className="shrink-0 flex md:flex-col items-center gap-4">
                 <div className="w-16 h-16 rounded-full overflow-hidden ring-4 ring-white shadow-sm shrink-0">
-                  <img src={item.userAvatar} alt={item.userName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={item.user_avatar} alt={item.user_name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </div>
-                {!item.isApproved && (
+                {!item.is_approved && (
                    <ShieldAlert className="text-amber-500" size={20} />
                 )}
               </div>
@@ -132,7 +134,7 @@ export function Comments() {
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
                   <div>
                     <h4 className="font-sans font-bold text-lg text-on-background flex items-center gap-3">
-                      {item.userName}
+                      {item.user_name}
                       {item.type === 'question' && (
                         <span className="bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-black tracking-widest uppercase">Question</span>
                       )}
@@ -146,29 +148,29 @@ export function Comments() {
                     </h4>
                     <div className="flex flex-wrap gap-x-4 gap-y-1">
                       <p className="text-secondary text-[10px] font-bold uppercase tracking-widest mt-1">
-                        {item.type === 'question' ? 'Asked on' : 'Commented on'} <span className="text-primary hover:underline cursor-pointer">{item.entityId}</span>
+                        {item.type === 'question' ? 'Asked on' : 'Commented on'} <span className="text-primary hover:underline cursor-pointer">{item.id}</span>
                       </p>
-                      {item.userEmail && (
+                      {item.user_email && (
                         <p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest mt-1">
-                          Email: <span className="text-stone-500">{item.userEmail}</span>
+                          Email: <span className="text-stone-500">{item.user_email}</span>
                         </p>
                       )}
-                      {item.userWebsite && (
+                      {item.user_website && (
                         <p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest mt-1">
-                          Web: <span className="text-stone-500">{item.userWebsite}</span>
+                          Web: <span className="text-stone-500">{item.user_website}</span>
                         </p>
                       )}
                     </div>
                   </div>
-                  <span className="text-stone-400 text-xs font-medium md:mt-0 mt-2">{item.createdAt}</span>
+                  <span className="text-stone-400 text-xs font-medium md:mt-0 mt-2">{item.created_at}</span>
                 </div>
                 <p className="font-sans text-stone-600 leading-relaxed text-lg mb-6 italic">
                   "{item.content}"
                 </p>
                 <div className="flex flex-wrap gap-2 md:gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {!item.isApproved && (isChef || isAdmin) && (
+                  {!item.is_approved && (isChef || isAdmin) && (
                     <button 
-                      onClick={() => handleApprove(item.id)}
+                      onClick={() => handleApprove(String(item.id))}
                       className="flex items-center gap-2 px-3 md:px-4 py-2 border border-emerald-200 text-emerald-600 rounded-lg text-[10px] md:text-xs font-bold hover:bg-emerald-600 hover:text-white transition-colors shrink-0"
                     >
                       <CheckCircle size={14} /> APPROVE
@@ -176,9 +178,9 @@ export function Comments() {
                   )}
                   {(isChef || isAdmin) && (
                     <button 
-                      onClick={() => setReplyToId(item.id === replyToId ? null : item.id)}
+                      onClick={() => setReplyToId(String(item.id) === replyToId ? null : String(item.id))}
                       className={`flex items-center gap-2 px-3 md:px-4 py-2 border rounded-lg text-[10px] md:text-xs font-bold transition-colors shrink-0 ${
-                        replyToId === item.id 
+                        replyToId === String(item.id) 
                           ? 'bg-stone-900 border-stone-900 text-white' 
                           : 'border-stone-200 text-stone-600 hover:bg-stone-900 hover:text-white hover:border-stone-900'
                       }`}
@@ -188,7 +190,7 @@ export function Comments() {
                   )}
                   {isAdmin && (
                     <button 
-                      onClick={() => handleDelete(item.id)}
+                      onClick={() => handleDelete(String(item.id))}
                       className="flex items-center gap-2 px-3 md:px-4 py-2 border border-red-200 text-red-500 rounded-lg text-[10px] md:text-xs font-bold hover:bg-red-600 hover:text-white transition-colors shrink-0"
                     >
                       <Trash2 size={14} /> DELETE
@@ -197,7 +199,7 @@ export function Comments() {
                 </div>
 
                 <AnimatePresence>
-                  {replyToId === item.id && (
+                  {replyToId === String(item.id) && (
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -209,7 +211,7 @@ export function Comments() {
                           rows={3}
                           value={replyText}
                           onChange={(e) => setReplyText(e.target.value)}
-                          placeholder={`Reply to ${item.userName}...`}
+                          placeholder={`Reply to ${item.user_name}...`}
                           className="w-full bg-white border border-stone-200 rounded-xl p-3 text-sm font-sans focus:ring-2 focus:ring-primary/10 transition-all outline-none resize-none mb-3"
                         />
                         <div className="flex justify-end gap-2">
@@ -223,7 +225,7 @@ export function Comments() {
                             Cancel
                           </button>
                           <button 
-                            onClick={() => handleReplySubmit(item)}
+                            onClick={() => handleReplySubmit(item.id)}
                             disabled={!replyText.trim() || isSubmitting}
                             className="bg-primary text-white px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-2 disabled:opacity-50"
                           >

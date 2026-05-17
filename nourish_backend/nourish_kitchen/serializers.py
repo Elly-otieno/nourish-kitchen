@@ -192,3 +192,16 @@ class NewsletterSubscriptionSerializer(serializers.ModelSerializer):
         model = NewsletterSubscription
         fields = ['id', 'email', 'date']
         read_only_fields = ['id', 'date']
+
+class AccountSetupSerializer(serializers.Serializer):
+    token = serializers.UUIDField(required=True)
+    password = serializers.CharField(write_only=True, min_length=8, style={'input_type': 'password'})
+    name = serializers.CharField(required=False, allow_blank=True)
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    password_new = serializers.CharField(write_only=True, min_length=8)

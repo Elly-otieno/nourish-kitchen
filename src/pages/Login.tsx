@@ -63,7 +63,7 @@ export function Login() {
               alt="Steaming homemade nourish" 
               className="w-full h-full object-cover brightness-[0.85] contrast-[1.05]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-stone-950/80 via-stone-950/20 to-transparent" />
           </motion.div>
           
           <div className="absolute bottom-10 left-10 right-10 z-10 text-white">
@@ -135,7 +135,7 @@ export function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@nourishkitchen.com"
-                      className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-[2rem] text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
+                      className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-4xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
                     />
                   </div>
                 </div>
@@ -153,7 +153,7 @@ export function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-[2rem] text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
+                      className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-4xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
                     />
                   </div>
                 </div>
@@ -163,7 +163,7 @@ export function Login() {
                   whileTap={{ scale: 0.99 }}
                   type="submit"
                   disabled={isLoading}
-                  className="w-full bg-[#1a382d] text-white rounded-[2rem] py-4 font-bold text-[11px] uppercase tracking-[0.4em] shadow-xl shadow-emerald-950/10 transition-all flex items-center justify-center gap-4 disabled:opacity-70 group overflow-hidden relative"
+                  className="w-full bg-[#1a382d] text-white rounded-4xl py-4 font-bold text-[11px] uppercase tracking-[0.4em] shadow-xl shadow-emerald-950/10 transition-all flex items-center justify-center gap-4 disabled:opacity-70 group overflow-hidden relative"
                 >
                   {isLoading ? (
                     <Loader2 className="animate-spin" size={18} />

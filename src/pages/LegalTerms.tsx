@@ -10,7 +10,6 @@ export function LegalTerms() {
         <Link to="/" className="inline-flex items-center gap-2 text-stone-400 hover:text-primary transition-colors mb-12 font-bold text-xs uppercase tracking-widest">
           <ArrowLeft size={16} /> Back to Kingdom
         </Link>
-        
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -87,10 +87,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900 font-medium'
                 }`}
               >
-                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.5} className="flex-shrink-0" />
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
                 {!isCollapsed && <span className="font-serif text-sm">{item.label}</span>}
                 {isCollapsed && (
-                  <div className="absolute left-full ml-4 px-3 py-2 bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-[100]">
+                  <div className="absolute left-full ml-4 px-3 py-2 bg-stone-900 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-100">
                     {item.label}
                   </div>
                 )}
@@ -103,7 +103,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           {!isCollapsed && user && (
             <div className="px-4 py-3 bg-stone-50 rounded-2xl mb-4 text-left">
               <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest leading-none mb-1">Signed in as</p>
-              <p className="text-xs font-bold text-stone-900 truncate">{user.name}</p>
+              <p className="text-xs font-bold text-stone-900 truncate">{user.username}</p>
             </div>
           )}
           <NavLink
@@ -111,14 +111,14 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             onClick={() => onClose()}
             className="flex items-center gap-3 px-4 py-3.5 rounded-2xl text-stone-500 hover:bg-stone-50 hover:text-stone-900 transition-all font-bold group relative"
           >
-            <UserCircle size={20} strokeWidth={1.5} className="flex-shrink-0" />
+            <UserCircle size={20} strokeWidth={1.5} className="shrink-0" />
             {!isCollapsed && <span className="font-serif text-sm">Profile Settings</span>}
           </NavLink>
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-red-500 hover:bg-red-50 transition-all font-bold group relative"
           >
-            <LogOut size={20} strokeWidth={1.5} className="flex-shrink-0" />
+            <LogOut size={20} strokeWidth={1.5} className="shrink-0" />
             {!isCollapsed && <span className="font-serif text-sm">Sign Out</span>}
           </button>
         </div>

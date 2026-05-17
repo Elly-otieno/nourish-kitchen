@@ -5,6 +5,8 @@ import {
   KitchenStats,
   Comment,
   UserRole,
+  Subscriber,
+  CommentReplyResponse,
 } from "../types";
 
 const API_BASE = "http://127.0.0.1:8000/api";
@@ -110,11 +112,10 @@ export const api = {
     return handleResponse(res);
   },
 
-
   async toggleLikeRecipe(
-    id: string,
+    recipeId: string,
   ): Promise<{ liked: boolean; count: number }> {
-    const res = await fetch(`${API_BASE}/recipes/${id}/toggle-like/`, {
+    const res = await fetch(`${API_BASE}/recipes/${recipeId}/toggle-like/`, {
       method: "POST",
       headers: getHeaders(),
     });
@@ -146,6 +147,19 @@ export const api = {
     const isFormData = blog instanceof FormData;
     const res = await fetch(`${API_BASE}/posts/`, {
       method: "POST",
+      headers: getHeaders(isFormData),
+      body: isFormData ? blog : JSON.stringify(blog),
+    });
+    return handleResponse(res);
+  },
+
+   async updateBlog(
+    id: string,
+    blog: Partial<BlogPost> | FormData,
+  ): Promise<BlogPost> {
+    const isFormData = blog instanceof FormData;
+    const res = await fetch(`${API_BASE}/posts/${id}/`, {
+      method: "PATCH", 
       headers: getHeaders(isFormData),
       body: isFormData ? blog : JSON.stringify(blog),
     });
@@ -226,17 +240,37 @@ export const api = {
   /**
    * Invites/Creates a new member inside the registry.
    */
-  createUser: async (payload: { username: string; email: string; role: UserRole }): Promise<User> => {
+  createUser: async (payload: {
+    name: string;
+    email: string;
+    role: UserRole;
+  }): Promise<User> => {
+    const body = {
+      name: payload.name,
+      email: payload.email,
+      role: payload.role,
+      username: payload.email.split("@")[0],
+    };
+
     const res = await fetch(`${API_BASE}/users/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: payload.username,
-        email: payload.email,
-        role: payload.role,
-      }),
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    return handleResponse(res);
+  },
+
+  async updateUser(
+    userId: string,
+    payload: FormData | Record<string, any>,
+  ): Promise<User> {
+    const isFormData = payload instanceof FormData;
+
+    const res = await fetch(`${API_BASE}/users/update-me/`, {
+      method: "PATCH",
+      headers: getHeaders(isFormData),
+      body: isFormData ? payload : JSON.stringify(payload),
     });
 
     return handleResponse(res);
@@ -247,11 +281,72 @@ export const api = {
    */
   deleteUser: async (id: string): Promise<void> => {
     const res = await fetch(`${API_BASE}/users/${id}/`, {
-      method: 'DELETE',
+      method: "DELETE",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
+    return handleResponse(res);
+  },
+
+  /**
+   * Verifies if an invitation token sent via email is valid and hasn't expired.
+   * Typically used in a useEffect hook when the user lands on the registration page.
+   * * @param token The raw validation token extracted from the URL query params
+   */
+  verifyInviteToken: async (
+    token: string,
+  ): Promise<{ email: string; role: UserRole; valid: boolean }> => {
+    const res = await fetch(
+      `${API_BASE}/auth/invite/verify/?token=${encodeURIComponent(token)}`,
+      {
+        method: "GET",
+        headers: getHeaders(),
+      },
+    );
+
+    return handleResponse(res);
+  },
+
+  /**
+   * Completes the invitation workflow by setting a password and profile configuration
+   * for the invited kitchen staff member, changing their status to "active".
+   */
+  setupInvitedAccount: async (payload: {
+    token: string;
+    password: string;
+    name?: string;
+  }): Promise<User> => {
+    const res = await fetch(`${API_BASE}/auth/invite/setup/`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    return handleResponse(res);
+  },
+
+  /**
+   * Initiates or executes a secure password recovery flow.
+   * Can be used for both requesting a reset email or submitting the new password choice.
+   */
+  resetPassword: async (
+    payload:
+      | { email: string }
+      | { token: string; uid: string; password_new: string },
+  ): Promise<{ message: string; success: boolean }> => {
+    // Determine context dynamically based on incoming fields
+    const isExecution = "password_new" in payload;
+    const targetEndpoint = isExecution
+      ? "/auth/password-reset/confirm/"
+      : "/auth/password-reset/request/";
+
+    const res = await fetch(`${API_BASE}${targetEndpoint}`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload),
+    });
+
     return handleResponse(res);
   },
 
@@ -273,6 +368,19 @@ export const api = {
     return handleResponse(res);
   },
 
+  async replyToComment(
+    commentId: number | string,
+    content: string,
+  ): Promise<CommentReplyResponse> {
+    const res = await fetch(`${API_BASE}/comments/${commentId}/reply/`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ content: content.trim() }),
+    });
+
+    return handleResponse(res);
+  },
+
   async getComments(id: string): Promise<Comment[]> {
     const res = await fetch(`${API_BASE}/comments/${id}/`, {
       headers: getHeaders(),
@@ -280,7 +388,7 @@ export const api = {
     return handleResponse(res);
   },
 
-  async getAllComments(id: string): Promise<Comment[]> {
+  async getAllComments(): Promise<Comment[]> {
     const res = await fetch(`${API_BASE}/comments/`, {
       headers: getHeaders(),
     });
@@ -296,13 +404,13 @@ export const api = {
   },
 
   // --- Newsletter ---
-  async getNewsletterSubscribers(): Promise<KitchenStats[]> {
+  async getNewsletterSubscribers(): Promise<Subscriber[]> {
     const res = await fetch(`${API_BASE}/newsletter/subscribers/`, {
       headers: getHeaders(),
     });
     return handleResponse(res);
   },
-  
+
   async subscribeToNewsletter(email: string): Promise<{ success: boolean }> {
     const res = await fetch(`${API_BASE}/newsletter/subscribe/`, {
       method: "POST",
@@ -315,12 +423,16 @@ export const api = {
   async sendNewsletter(
     subject: string,
     content: string,
-  ): Promise<{ status: string }> {
+  ): Promise<{ status: string; count: number }> {
     const res = await fetch(`${API_BASE}/newsletter/send/`, {
       method: "POST",
-      headers: getHeaders(),
+      headers: {
+        ...getHeaders(),
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({ subject, content }),
     });
+
     return handleResponse(res);
   },
 

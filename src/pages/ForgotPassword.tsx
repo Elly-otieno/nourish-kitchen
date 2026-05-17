@@ -11,18 +11,19 @@ export function ForgotPassword() {
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      await api.forgotPassword(email);
-      setSuccess(true);
-    } catch (err) {
-      setError('Something went wrong. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  e.preventDefault();
+  setLoading(true);
+  setError(null);
+  try {
+    await api.resetPassword({ email: email.trim() });
+    setSuccess(true);
+  } catch (err: any) {
+    console.error('Password reset failed:', err);
+    setError(err.message || 'Something went wrong. Please try again later.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen pt-32 pb-20 px-6 bg-[#faf9f6]">

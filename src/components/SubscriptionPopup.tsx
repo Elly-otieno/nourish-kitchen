@@ -49,7 +49,7 @@ export function SubscriptionPopup() {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-1000 flex items-center justify-center p-4">
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -62,7 +62,7 @@ export function SubscriptionPopup() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="w-full max-w-4xl bg-white rounded-[3rem] overflow-hidden shadow-[0_40px_120px_-20px_rgba(0,0,0,0.1)] relative flex flex-col md:flex-row min-h-[500px]"
+            className="w-full max-w-4xl bg-white rounded-[3rem] overflow-hidden shadow-[0_40px_120px_-20px_rgba(0,0,0,0.1)] relative flex flex-col md:flex-row min-h-125"
           >
             <button 
               onClick={handleClose}
@@ -72,7 +72,7 @@ export function SubscriptionPopup() {
             </button>
 
             {/* Left Side: Visual Inspiration */}
-            <div className="md:w-5/12 relative min-h-[300px] md:min-h-full overflow-hidden">
+            <div className="md:w-5/12 relative min-h-75 md:min-h-full overflow-hidden">
                <motion.img 
                   initial={{ scale: 1.1 }}
                   animate={{ scale: 1 }}
@@ -81,7 +81,7 @@ export function SubscriptionPopup() {
                   alt="African Spices" 
                   className="absolute inset-0 w-full h-full object-cover brightness-[0.8] contrast-[1.1]"
                />
-               <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/90 via-emerald-950/20 to-transparent" />
+               <div className="absolute inset-0 bg-linear-to-t from-emerald-950/90 via-emerald-950/20 to-transparent" />
                
                <div className="absolute inset-x-0 bottom-0 p-10 z-10">
                   <div className="flex items-center gap-3 mb-4">
@@ -126,7 +126,7 @@ export function SubscriptionPopup() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="Your best email address..."
-                        className="w-full bg-white border border-stone-100 rounded-[2rem] pl-16 pr-8 py-5 text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300 shadow-sm"
+                        className="w-full bg-white border border-stone-100 rounded-4xl pl-16 pr-8 py-5 text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300 shadow-sm"
                       />
                     </div>
 
@@ -149,7 +149,7 @@ export function SubscriptionPopup() {
                   <button 
                     type="submit"
                     disabled={!email || !acceptedTerms || status === 'loading'}
-                    className={`w-full py-5 rounded-[2rem] font-bold text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-4 group shadow-xl ${
+                    className={`w-full py-5 rounded-4xl font-bold text-[11px] uppercase tracking-[0.3em] transition-all flex items-center justify-center gap-4 group shadow-xl ${
                       !email || !acceptedTerms || status === 'loading'
                         ? 'bg-stone-100 text-stone-300 cursor-not-allowed shadow-none'
                         : 'bg-emerald-950 text-white hover:bg-[#132c23] hover:shadow-emerald-950/20 active:scale-[0.98]'

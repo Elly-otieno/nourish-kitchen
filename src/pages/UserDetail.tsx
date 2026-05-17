@@ -22,7 +22,7 @@ export function UserDetail() {
         if (found) {
           setChef(found);
           const allRecipes = await api.getRecipes();
-          setRecipes(allRecipes.filter(r => r.authorId === id));
+          setRecipes(allRecipes.filter(r => String(r.author) === id));
         }
       } catch (error) {
         console.error('Failed to load chef profile:', error);
@@ -64,8 +64,8 @@ export function UserDetail() {
                className="w-40 h-40 md:w-56 md:h-56 rounded-[3rem] overflow-hidden border-8 border-white/10 shadow-2xl rotate-3"
             >
               <img 
-                src={chef.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${chef.name}`} 
-                alt={chef.name} 
+                src={chef.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${chef.username}`} 
+                alt={chef.username} 
                 className="w-full h-full object-cover"
               />
             </motion.div>
@@ -74,7 +74,7 @@ export function UserDetail() {
               <span className="inline-block px-4 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 mb-6 font-black text-[10px] uppercase tracking-widest">
                 {chef.role}
               </span>
-              <h1 className="font-serif text-5xl md:text-7xl font-bold mb-4 tracking-tight">{chef.name}</h1>
+              <h1 className="font-serif text-5xl md:text-7xl font-bold mb-4 tracking-tight">{chef.username}</h1>
               <div className="flex flex-wrap justify-center md:justify-start gap-6 text-emerald-100/60 font-sans font-bold text-xs uppercase tracking-widest mb-8">
                 <div className="flex items-center gap-2">
                   <ChefHat size={14} className="text-emerald-400" />
@@ -109,13 +109,13 @@ export function UserDetail() {
             {recipes.map((recipe) => (
               <RecipeCard 
                 key={recipe.id}
-                id={recipe.id}
-                image={recipe.heroImage}
+                id={String(recipe.id)}
+                image={recipe.hero_image || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&q=80'}
                 category={recipe.categories[0]}
                 title={recipe.title}
-                time={recipe.prepTime}
+                time={recipe.prep_time}
                 rating={recipe.rating}
-                likedBy={recipe.likedBy}
+                likedBy={recipe.liked_by?.map(id => String(id)) || []}
               />
             ))}
           </div>

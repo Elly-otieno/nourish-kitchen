@@ -108,7 +108,7 @@ export const CommentsAndReviewsSection = ({ entityId }: { entityId: string }) =>
   const filteredComments = allComments.filter(c => 
     String(c.recipe || c.blog_post) === entityId && 
     (c.type === 'comment' || !c.type) && 
-    (c.is_approved || (user && c.user === user.id) || guestThread.includes(c.id))
+    (c.is_approved || (user && String(c.user) === user.id) || guestThread.includes(c.id))
   );
 
   const displayedComments = showAll ? filteredComments : filteredComments.slice(0, 4);
@@ -426,7 +426,7 @@ export const QuestionsSection = ({ entityId }: { entityId: string }) => {
     String(c.recipe || c.blog_post) === entityId && 
     c.type === 'question' && 
     !c.parent && // Check that it is a root question level item, not a reply link node
-    (c.is_approved || (user && c.user === user.id) || guestThread.includes(c.id))
+    (c.is_approved || (user && String(c.user) === user.id) || guestThread.includes(c.id))
   );
   
   const replies = allComments.filter(c => 

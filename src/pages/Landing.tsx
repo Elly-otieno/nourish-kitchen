@@ -68,7 +68,7 @@ export function Landing() {
   
   // Soft Delete Recipe Mutation
   const deleteRecipeMutation = useMutation({
-    mutationFn: (recipeId: number) => api.deleteRecipe(recipeId),
+    mutationFn: (recipeId: number) => api.deleteRecipe(String(recipeId)),
     onSuccess: () => {
       console.log("LOG: Recipe successfully archived. Invalidating cache...");
       // Tells React Query to instantly refresh recipes list from backend
@@ -83,7 +83,7 @@ export function Landing() {
   // Soft Delete Blog Mutation
   const deleteBlogMutation = useMutation({
     mutationFn: (blogId: number) => {
-      if (api.deleteBlog) return api.deleteBlog(blogId);
+      if (api.deleteBlog) return api.deleteBlog(String(blogId));
       return Promise.reject(new Error("deleteBlog method not found on api object"));
     },
     onSuccess: () => {
@@ -137,7 +137,7 @@ export function Landing() {
   };
   return (
     <>
-      <section className="relative h-[100vh] min-h-175 flex items-center justify-center overflow-hidden">
+      <section className="relative h-screen min-h-175 flex items-center justify-center overflow-hidden">
         {/* Full-width refined background */}
         <div className="absolute inset-0 z-0">
           <motion.img
@@ -150,7 +150,7 @@ export function Landing() {
           />
           {/* Multi-layered overlay for depth and legibility */}
           <div className="absolute inset-0 bg-stone-900/40 backdrop-brightness-75 z-10" />
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/80 via-transparent to-stone-950/20 z-20" />
+          <div className="absolute inset-0 bg-linear-to-t from-stone-950/80 via-transparent to-stone-950/20 z-20" />
         </div>
 
         <div className="max-w-7xl mx-auto px-6 md:px-12 relative z-30 w-full flex flex-col items-center">
@@ -211,7 +211,7 @@ export function Landing() {
             <span className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 rotate-0">
               Scroll
             </span>
-            <div className="w-[1px] h-12 bg-white/20 relative overflow-hidden">
+            <div className="w-px h-12 bg-white/20 relative overflow-hidden">
               <motion.div
                 animate={{ y: [0, 48, 0] }}
                 transition={{
@@ -284,7 +284,7 @@ export function Landing() {
                       </div>
                       {(user?.role === "ADMIN" ||
                         user?.role === "CHEF" ||
-                        user?.id === recipe.author) && (
+                        user?.id === String(recipe.author)) && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -454,7 +454,7 @@ export function Landing() {
 
                     {(user?.role === "ADMIN" ||
                       user?.role === "CHEF" ||
-                      user?.id === item.author) && (
+                      user?.id === String(item.author)) && (
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -468,7 +468,7 @@ export function Landing() {
                     )}
 
                     <div className="absolute inset-x-0 bottom-0 p-8 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500">
-                      <div className="bg-white/90 backdrop-blur-md p-6 rounded-[1.5rem] shadow-2xl border border-white/20">
+                      <div className="bg-white/90 backdrop-blur-md p-6 rounded-3xl shadow-2xl border border-white/20">
                         <span className="text-[8px] font-black uppercase tracking-[0.3em] text-emerald-600 mb-2 block">
                           {item.categories[0]}
                         </span>
@@ -557,7 +557,7 @@ export function Landing() {
                       </span>
                       {(user?.role === "ADMIN" ||
                         user?.role === "CHEF" ||
-                        user?.id === post.author) && (
+                        user?.id === String(post.author)) && (
                         <button
                           onClick={(e) => {
                             e.preventDefault();
@@ -602,7 +602,7 @@ export function Landing() {
         viewport={{ once: true }}
         className="pb-32 px-6 md:px-12 bg-white mt-20"
       >
-        <div className="max-w-7xl mx-auto bg-emerald-50 rounded-[32px] p-12 md:p-24 overflow-hidden relative">
+        <div className="max-w-7xl mx-auto bg-emerald-50 rounded-4xl p-12 md:p-24 overflow-hidden relative">
           <div className="relative z-10 max-w-2xl ">
             <h2 className="font-serif text-4xl md:text-5xl lg:text-6xl font-bold text-emerald-950 mb-8 leading-tight">
               Get Kitchen Updates <br />
@@ -621,7 +621,7 @@ export function Landing() {
                 animate={{ opacity: 1, scale: 1 }}
                 className="bg-emerald-600 text-white p-8 rounded-3xl flex items-center gap-6 shadow-xl"
               >
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center shrink-0">
                   <CheckCircle2 size={24} />
                 </div>
                 <div>

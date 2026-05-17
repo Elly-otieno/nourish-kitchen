@@ -64,7 +64,7 @@ export function NewRecipe() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     {
-      id: "1",
+      id: 1,
       qty: "250",
       unit: "Grams",
       category: "Main",
@@ -73,14 +73,14 @@ export function NewRecipe() {
   ]);
 
   const [steps, setSteps] = useState<Step[]>([
-    { id: "1", title: "Preparation", description: "" },
+    { id: 1, title: "Preparation", description: "" },
   ]);
 
   const addIngredient = () => {
     setIngredients([
       ...ingredients,
       {
-        id: Math.random().toString(),
+        id: Date.now() + Math.floor(Math.random() * 1000),
         qty: "",
         unit: "Grams",
         category: "Main",
@@ -90,7 +90,7 @@ export function NewRecipe() {
   };
 
   const removeIngredient = (id: string) => {
-    setIngredients(ingredients.filter((ing) => ing.id !== id));
+    setIngredients(ingredients.filter((ing) => String(ing.id) !== id));
   };
 
   const updateIngredient = (
@@ -100,7 +100,7 @@ export function NewRecipe() {
   ) => {
     setIngredients(
       ingredients.map((ing) =>
-        ing.id === id ? { ...ing, [field]: value } : ing,
+        String(ing.id) === id ? { ...ing, [field]: value } : ing,
       ),
     );
   };
@@ -108,18 +108,18 @@ export function NewRecipe() {
   const addStep = () => {
     setSteps([
       ...steps,
-      { id: Math.random().toString(), title: "", description: "" },
+      { id: Date.now() + Math.floor(Math.random() * 1000), title: "", description: "" },
     ]);
   };
 
   const removeStep = (id: string) => {
-    setSteps(steps.filter((step) => step.id !== id));
+    setSteps(steps.filter((step) => String(step.id) !== id));
   };
 
   const updateStep = (id: string, field: keyof Step, value: string) => {
     setSteps(
       steps.map((step) =>
-        step.id === id ? { ...step, [field]: value } : step,
+        String(step.id) === id ? { ...step, [field]: value } : step,
       ),
     );
   };
@@ -468,7 +468,7 @@ export function NewRecipe() {
                 className="w-full resize-none border-b border-stone-100 bg-transparent py-4 font-sans text-lg leading-relaxed text-stone-600 placeholder:text-stone-300 focus:border-[#b58e3e] focus:outline-none transition-colors"
               />
             ) : (
-              <div className="min-h-[150px] py-4 prose prose-stone max-w-none">
+              <div className="min-h-37.5 py-4 prose prose-stone max-w-none">
                 <div className="font-sans text-stone-600 leading-relaxed text-lg italic whitespace-pre-line">
                   <ReactMarkdown>
                     {story || "Your story will appear here..."}
@@ -494,7 +494,7 @@ export function NewRecipe() {
             />
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="group relative flex min-h-[280px] md:h-96 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#b58e3e]/30 bg-stone-50/50 hover:bg-emerald-50 transition-colors p-8"
+              className="group relative flex min-h-70 md:h-96 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#b58e3e]/30 bg-stone-50/50 hover:bg-emerald-50 transition-colors p-8"
             >
               {heroImage ? (
                 <img
@@ -517,7 +517,7 @@ export function NewRecipe() {
                 </>
               )}
 
-              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-primary/[0.02] to-transparent pointer-events-none" />
+              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-linear-to-t from-primary/2 to-transparent pointer-events-none" />
 
               {heroImage && (
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -564,7 +564,7 @@ export function NewRecipe() {
                       placeholder="Qty"
                       value={ing.qty}
                       onChange={(e) =>
-                        updateIngredient(ing.id, "qty", e.target.value)
+                        updateIngredient(String(ing.id), "qty", e.target.value)
                       }
                       className="w-full border-b border-stone-100 bg-transparent py-2 text-sm focus:border-[#b58e3e] focus:outline-none transition-colors sm:text-center"
                     />
@@ -577,7 +577,7 @@ export function NewRecipe() {
                       <select
                         value={ing.unit}
                         onChange={(e) =>
-                          updateIngredient(ing.id, "unit", e.target.value)
+                          updateIngredient(String(ing.id), "unit", e.target.value)
                         }
                         className="w-full appearance-none border-b border-stone-100 bg-transparent py-2 pr-8 text-sm focus:border-[#b58e3e] focus:outline-none transition-colors cursor-pointer"
                       >
@@ -601,11 +601,11 @@ export function NewRecipe() {
                         <input
                           type="text"
                           placeholder="Unit (e.g. Pinch)"
-                          value={ing.customUnit || ""}
+                          value={ing.custom_unit || ""}
                           onChange={(e) =>
                             updateIngredient(
-                              ing.id,
-                              "customUnit",
+                              String(ing.id),
+                              "custom_unit",
                               e.target.value,
                             )
                           }
@@ -621,7 +621,7 @@ export function NewRecipe() {
                     <select
                       value={ing.category}
                       onChange={(e) =>
-                        updateIngredient(ing.id, "category", e.target.value)
+                        updateIngredient(String(ing.id), "category", e.target.value)
                       }
                       className="w-full appearance-none border-b border-stone-100 bg-transparent py-2 pr-8 text-sm font-bold text-[#b58e3e] focus:border-[#b58e3e] focus:outline-none transition-colors cursor-pointer uppercase tracking-widest"
                     >
@@ -646,14 +646,14 @@ export function NewRecipe() {
                       placeholder="Ingredient name (e.g. Maldon Sea Salt)"
                       value={ing.name}
                       onChange={(e) =>
-                        updateIngredient(ing.id, "name", e.target.value)
+                        updateIngredient(String(ing.id), "name", e.target.value)
                       }
                       className="w-full border-b border-stone-100 bg-transparent py-2 text-sm focus:border-[#b58e3e] focus:outline-none transition-colors"
                     />
                   </div>
                   <div className="col-span-1 flex justify-end w-full sm:w-auto">
                     <button
-                      onClick={() => removeIngredient(ing.id)}
+                      onClick={() => removeIngredient(String(ing.id))}
                       className="text-stone-300 hover:text-red-500 transition-colors p-3 bg-stone-50 rounded-lg sm:bg-transparent sm:rounded-none"
                     >
                       <Trash2 size={18} />
@@ -702,7 +702,7 @@ export function NewRecipe() {
                         placeholder="Step Title (e.g. Master the Spice Bloom)"
                         value={step.title}
                         onChange={(e) =>
-                          updateStep(step.id, "title", e.target.value)
+                          updateStep(String(step.id), "title", e.target.value)
                         }
                         className="w-full border-b border-stone-100 bg-transparent py-2 font-serif text-xl md:text-2xl font-semibold text-primary focus:border-[#b58e3e] focus:outline-none transition-colors"
                       />
@@ -715,7 +715,7 @@ export function NewRecipe() {
                         }
                         value={step.description}
                         onChange={(e) =>
-                          updateStep(step.id, "description", e.target.value)
+                          updateStep(String(step.id), "description", e.target.value)
                         }
                         className="w-full resize-none border-b border-stone-50 bg-transparent py-2 font-sans text-base md:text-lg text-stone-600 focus:border-[#b58e3e] focus:outline-none transition-colors leading-relaxed"
                       />
@@ -725,7 +725,7 @@ export function NewRecipe() {
                         <ImageIcon size={12} /> Add Detail Photo
                       </button>
                       <button
-                        onClick={() => removeStep(step.id)}
+                        onClick={() => removeStep(String(step.id))}
                         className="md:hidden text-red-300 px-4 py-2 text-xs font-bold uppercase tracking-widest"
                       >
                         Delete Step
@@ -733,7 +733,7 @@ export function NewRecipe() {
                     </div>
                   </div>
                   <button
-                    onClick={() => removeStep(step.id)}
+                    onClick={() => removeStep(String(step.id))}
                     className="hidden md:block text-stone-100 hover:text-red-500 transition-colors p-px mt-4"
                   >
                     <X size={24} />

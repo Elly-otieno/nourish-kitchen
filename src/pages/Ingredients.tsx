@@ -42,7 +42,7 @@ export function Ingredients() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="bg-white p-8 rounded-[2rem] soft-shadow border border-stone-100 flex flex-col gap-6 group hover:translate-y-[-4px] transition-transform"
+            className="bg-white p-8 rounded-4xl soft-shadow border border-stone-100 flex flex-col gap-6 group hover:translate-y-1 transition-transform"
           >
             <div className="flex justify-between items-start">
               <div>

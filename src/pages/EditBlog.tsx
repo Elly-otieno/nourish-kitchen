@@ -40,7 +40,7 @@ export function EditBlog() {
         const data = await api.getBlog(id);
         
         // Permission check: Only author or staff (ADMIN/CHEF) can edit
-        if (user && data.authorId !== user.id && user.role === 'USER') {
+        if (user && String(data.author) !== user.id && user.role === 'USER') {
           navigate(`/blog/all/${id}`);
           return;
         }
@@ -48,9 +48,9 @@ export function EditBlog() {
         setTitle(data.title);
         setExcerpt(data.excerpt);
         setContent(data.content);
-        setReadingTime(data.readingTime);
-        setHeroImage(data.heroImage);
-        setSyndicationLinks(data.syndicationLinks || []);
+        setReadingTime(data.reading_time);
+        setHeroImage(data.hero_image);
+        setSyndicationLinks(data.syndication_links || []);
       } catch (error) {
         console.error('Failed to fetch blog:', error);
         setNotification({ type: 'error', message: 'Failed to load journal entry.' });
@@ -226,7 +226,7 @@ export function EditBlog() {
                 className="w-full resize-none border-b border-stone-100 bg-transparent py-4 font-sans text-lg leading-relaxed text-stone-600 focus:border-[#b58e3e] focus:outline-none"
               />
             ) : (
-              <div className="min-h-[300px] py-4 prose prose-emerald lg:prose-lg max-w-none">
+              <div className="min-h-75 py-4 prose prose-emerald lg:prose-lg max-w-none">
                 <div className="whitespace-pre-line">
                   <ReactMarkdown>{content || "Your article content will appear here..."}</ReactMarkdown>
                 </div>
@@ -291,7 +291,7 @@ export function EditBlog() {
                     placeholder="URL" 
                     value={link.url} 
                     onChange={e => updateLink(idx, 'url', e.target.value)}
-                    className="flex-[2] border-b border-stone-100 bg-transparent py-2 font-sans text-sm focus:border-primary focus:outline-none"
+                    className="flex-2 border-b border-stone-100 bg-transparent py-2 font-sans text-sm focus:border-primary focus:outline-none"
                   />
                   <button onClick={() => removeLink(idx)} className="text-red-400 hover:text-red-600 transition-colors">
                     <Trash2 size={16} />

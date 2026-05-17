@@ -8,10 +8,21 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework_simplejwt.tokens import RefreshToken
 from .permissions import IsAdminRole, IsStaffOrCommentAuthor
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import force_bytes, force_str
 from .models import User, Recipe, UserRole, BlogPost, Comment, NewsletterSubscription
 from .serializers import (
     UserSerializer, RegisterSerializer, RecipeSerializer, BlogPostSerializer, 
     CommentSerializer, NewsletterSubscriptionSerializer
+)
+
+
+from .models import Invitation
+from .serializers import (
+    AccountSetupSerializer, 
+    PasswordResetRequestSerializer, 
+    PasswordResetConfirmSerializer
 )
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -100,7 +111,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         return Response({
             'liked': is_liked, 
             'count': recipe.liked_by.count()
-        })
+        }, status=status.HTTP_200_OK)
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -315,3 +326,115 @@ class ArchiveViewSet(viewsets.ViewSet):
             'blogs': BlogPostSerializer(BlogPost.all_objects.filter(is_deleted=True), many=True).data
         }
         return Response(data)
+
+class AuthViewSet(viewsets.ViewSet):
+    """
+    A unified ViewSet handling custom authentication pipelines including
+    invitation workflows and password resets.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    @action(detail=False, methods=['get'], url_path='invite/verify')
+    def verify_invite(self, request):
+        token_str = request.query_params.get('token')
+        if not token_str:
+            return Response({"detail": "Token parameter is required."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            invite = Invitation.objects.get(token=token_str)
+            if not invite.is_valid():
+                return Response({"detail": "This invitation link has expired or already been used."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response({
+                "email": invite.user.email,
+                "role": getattr(invite.user, 'role', 'CHEF'),
+                "valid": True
+            }, status=status.HTTP_200_OK)
+            
+        except (Invitation.DoesNotExist, ValueError):
+            return Response({"detail": "This invitation link is invalid."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(detail=False, methods=['post'], url_path='invite/setup')
+    def setup_account(self, request):
+        serializer = AccountSetupSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        token = serializer.validated_data['token']
+        password = serializer.validated_data['password']
+        name = serializer.validated_data.get('name', '')
+
+        try:
+            invite = Invitation.objects.get(token=token)
+            if not invite.is_valid():
+                return Response({"detail": "Invalid or expired invitation token."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user = invite.user
+            user.set_password(password)
+            if name:
+                user.name = name
+            
+            user.status = 'active'
+            user.is_active = True
+            user.save()
+
+            invite.is_used = True
+            invite.save()
+
+            return Response({
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "status": "active"
+            }, status=status.HTTP_200_OK)
+
+        except Invitation.DoesNotExist:
+            return Response({"detail": "Invitation data record missing."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+    @action(detail=False, methods=['post'], url_path='password-reset/request')
+    def password_reset_request(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email']
+        
+        try:
+            user = User.objects.get(email=email)
+            token = default_token_generator.make_token(user)
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            
+            # Log tokens to console for local testing environments
+            print(f"DEBUG RECOVERY LINK: /reset-password?uid={uid}&token={token}")
+            
+        except User.DoesNotExist:
+            pass # Silent mitigation against account enumeration vectors
+            
+        return Response({
+            "message": "If this account is registered, a recovery link has been generated.",
+            "success": True
+        }, status=status.HTTP_200_OK)
+
+
+    @action(detail=False, methods=['post'], url_path='password-reset/confirm')
+    def password_reset_confirm(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        uid = serializer.validated_data['uid']
+        token = serializer.validated_data['token']
+        password_new = serializer.validated_data['password_new']
+
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=user_id)
+            
+            if not default_token_generator.check_token(user, token):
+                return Response({"detail": "Reset link is either expired or signature verification failed."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            user.set_password(password_new)
+            user.save()
+            
+            return Response({"message": "Password changed successfully.", "success": True}, status=status.HTTP_200_OK)
+            
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({"detail": "Invalid parameters provided."}, status=status.HTTP_400_BAD_REQUEST)

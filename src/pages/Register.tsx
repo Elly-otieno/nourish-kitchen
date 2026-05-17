@@ -72,7 +72,7 @@ export function Register() {
         className="max-w-6xl w-full bg-white rounded-[3.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.06)] overflow-hidden flex flex-col lg:flex-row border border-stone-100"
       >
         {/* Left Side: Visual Inspiration - Cojoined */}
-        <div className="lg:w-1/2 relative h-[300px] lg:h-auto overflow-hidden">
+        <div className="lg:w-1/2 relative h-75 lg:h-auto overflow-hidden">
           <motion.div 
             initial={{ scale: 1.1 }}
             animate={{ scale: 1 }}
@@ -84,7 +84,7 @@ export function Register() {
               alt="Sprinkling Herbs in the Kitchen" 
               className="w-full h-full object-cover brightness-[0.85] contrast-[1.05]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/30 to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-stone-950/90 via-stone-950/30 to-transparent" />
           </motion.div>
           
           <div className="absolute bottom-10 left-10 right-10 z-10 text-white">
@@ -123,7 +123,7 @@ export function Register() {
         <div className="lg:w-1/2 p-8 md:p-12 lg:p-20 relative bg-[#faf9f6]/30">
           <div className="max-w-md mx-auto relative z-10">
             <div className="mb-10 text-center lg:text-left">
-              <div className="flex items-center gap-2 mb-8 max-w-[120px] mx-auto lg:mx-0">
+              <div className="flex items-center gap-2 mb-8 max-w-30 mx-auto lg:mx-0">
                 <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= 1 ? 'bg-emerald-600' : 'bg-stone-200'}`} />
                 <div className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${step >= 2 ? 'bg-emerald-600' : 'bg-stone-200'}`} />
               </div>
@@ -159,7 +159,7 @@ export function Register() {
                     >
                       <div className="flex justify-center mb-8">
                         <div className="relative group cursor-pointer">
-                          <div className="w-24 h-24 rounded-[2rem] bg-white border-2 border-dashed border-stone-200 flex items-center justify-center text-stone-300 group-hover:border-emerald-400 group-hover:text-emerald-500 transition-all overflow-hidden shadow-inner">
+                          <div className="w-24 h-24 rounded-4xl bg-white border-2 border-dashed border-stone-200 flex items-center justify-center text-stone-300 group-hover:border-emerald-400 group-hover:text-emerald-500 transition-all overflow-hidden shadow-inner">
                             <Camera size={28} strokeWidth={1.5} />
                           </div>
                           <div className="absolute -bottom-1 -right-1 w-9 h-9 bg-emerald-600 text-white rounded-2xl flex items-center justify-center shadow-xl border-4 border-white">
@@ -178,7 +178,7 @@ export function Register() {
                             value={formData.name}
                             onChange={(e) => setFormData({...formData, name: e.target.value})}
                             placeholder="Julian Nourish"
-                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-[2rem] text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
+                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-4xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
                           />
                         </div>
                       </div>
@@ -202,7 +202,7 @@ export function Register() {
                             value={formData.email}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
                             placeholder="you@nourishkitchen.com"
-                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-[2rem] text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
+                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-4xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
                           />
                         </div>
                       </div>
@@ -217,7 +217,7 @@ export function Register() {
                             value={formData.password}
                             onChange={(e) => setFormData({...formData, password: e.target.value})}
                             placeholder="••••••••"
-                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-[2rem] text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
+                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-4xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
                           />
                         </div>
                       </div>
@@ -232,7 +232,7 @@ export function Register() {
                             value={formData.confirmPassword}
                             onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                             placeholder="••••••••"
-                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-[2rem] text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
+                            className="w-full pl-16 pr-8 py-4 bg-white border border-stone-100 rounded-4xl text-sm focus:outline-none focus:ring-4 focus:ring-emerald-500/5 focus:border-emerald-200 transition-all font-medium placeholder:text-stone-300"
                           />
                         </div>
                       </div>
@@ -263,7 +263,7 @@ export function Register() {
                     whileTap={{ scale: 0.99 }}
                     type="submit"
                     disabled={isLoading}
-                    className="flex-1 bg-[#1a382d] text-white rounded-[2rem] py-4 font-bold text-[11px] uppercase tracking-[0.4em] shadow-xl shadow-emerald-950/10 transition-all flex items-center justify-center gap-4 disabled:opacity-70 group relative overflow-hidden"
+                    className="flex-1 bg-[#1a382d] text-white rounded-4xl py-4 font-bold text-[11px] uppercase tracking-[0.4em] shadow-xl shadow-emerald-950/10 transition-all flex items-center justify-center gap-4 disabled:opacity-70 group relative overflow-hidden"
                   >
                     {isLoading ? (
                       <Loader2 className="animate-spin" size={18} />

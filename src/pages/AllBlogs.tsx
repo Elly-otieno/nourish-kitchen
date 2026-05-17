@@ -65,7 +65,7 @@ export function AllBlogs() {
         console.log("LOG: Delete successful for ID:", id);
 
         setBlogs((prev) => {
-          const updated = prev.filter((b) => b.id !== id);
+          const updated = prev.filter((b) => String(b.id) !== id);
           console.log(
             "LOG: Local state updated. Remaining blogs:",
             updated.length,
@@ -160,7 +160,7 @@ export function AllBlogs() {
                       <div className="absolute inset-0 bg-stone-900/10 group-hover:bg-transparent transition-colors" />
                       {(user?.role === "ADMIN" || user?.role === "CHEF") && (
                         <button
-                          onClick={(e) => handleDelete(e, blog.id)}
+                          onClick={(e) => handleDelete(e, String(blog.id))}
                           className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 backdrop-blur-md text-stone-400 hover:text-red-500 shadow-xl border border-stone-100 transition-all opacity-0 group-hover:opacity-100 z-10"
                         >
                           <Trash2 size={16} />

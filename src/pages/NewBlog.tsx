@@ -70,7 +70,7 @@ export function NewBlog() {
         content,
         category: 'Heritage',
         authorId: user?.id || '1',
-        authorName: user?.name || 'Chef Eli',
+        authorName: user?.username || 'Chef Eli',
         readingTime: `${Math.ceil(content.split(' ').length / 200)} min read`,
         syndicationLinks: JSON.stringify(links.filter(l => l.url.trim() !== '').map(l => ({ site: l.site, url: l.url }))),
         isPublished: 'true'
@@ -192,7 +192,7 @@ export function NewBlog() {
             />
             <div 
               onClick={() => fileInputRef.current?.click()}
-              className="group relative flex min-h-[240px] md:h-80 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-[#b58e3e]/30 bg-stone-50/50 hover:bg-emerald-50 transition-colors p-8"
+              className="group relative flex min-h-60 md:h-80 w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-3xl border-2 border-dashed border-[#b58e3e]/30 bg-stone-50/50 hover:bg-emerald-50 transition-colors p-8"
             >
               {heroImage ? (
                 <img src={heroImage} alt="Preview" className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -239,7 +239,7 @@ export function NewBlog() {
               className="w-full resize-none border-0 bg-transparent p-0 font-serif text-lg md:text-xl text-stone-700 placeholder:text-stone-200 focus:outline-none leading-[1.8]"
             />
           ) : (
-            <div className="min-h-[300px] prose prose-emerald lg:prose-lg max-w-none pb-10 border-b border-stone-50">
+            <div className="min-h-75 prose prose-emerald lg:prose-lg max-w-none pb-10 border-b border-stone-50">
               <div className="whitespace-pre-line">
                 <ReactMarkdown>{content || "Your article content will appear here..."}</ReactMarkdown>
               </div>

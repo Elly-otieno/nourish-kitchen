@@ -2,83 +2,100 @@ import { motion, AnimatePresence } from 'motion/react';
 import { User as UserIcon, Mail, Shield, Bell, Settings, LogOut, Camera, Save, CheckCircle2, X, MapPin, ChefHat, Globe, Loader2, AlertCircle } from 'lucide-react';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../services/api';
 import { KitchenStats, User as UserType } from '../types';
 
 export function Profile() {
   const { user, logout, updateUser } = useAuth();
+  const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
+    name: user?.username || '',
     email: user?.email || '',
     specialization: 'Home Chef',
     bio: user?.bio || 'Family cook and creator of Nourish Kitchen. Passionate about sharing wholesome recipes and the joy of seasonal flavors.',
     location: 'Nairobi, Kenya',
     website: 'nourishkitchen.com/eli'
   });
-  const [isSaving, setIsSaving] = useState(false);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [avatar, setAvatar] = useState(user?.avatar || '');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [stats, setStats] = useState<KitchenStats | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  // Sync state cleanly if the auth context updates lazily 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const statsData = await api.getStats();
-        setStats(statsData);
-      } catch (error) {
-        console.error('Failed to load profile stats:', error);
-      }
+    if (user) {
+      setFormData(prev => ({ ...prev, name: user.username || '', bio: user.bio || prev.bio }));
+      setAvatar(user.avatar || '');
     }
-    loadData();
-  }, []);
+  }, [user]);
 
-  if (!user) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-20 text-center bg-stone-50 min-h-screen">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
-           <UserIcon size={64} className="mx-auto text-stone-200 mb-6" />
-           <p className="text-secondary font-serif text-xl italic mb-8">Please sign in to view your kitchen profile.</p>
-           <button onClick={() => window.location.href = '/login'} className="bg-primary text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs">Sign In</button>
-        </motion.div>
-      </div>
-    );
-  }
+  // Fetch Kitchen Metadata Metrics
+  const { data: stats = null } = useQuery({
+    queryKey: ['kitchenStats'],
+    queryFn: api.getStats,
+    enabled: !!user,
+  });
 
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
+  // Process Account Profile Modification Updates
+  const { mutate: runProfileUpdate, isPending: isSaving } = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('No active user context found');
+
       const updatePayload = {
         name: formData.name,
         bio: formData.bio,
       };
 
-      let updatedUser: UserType;
       if (avatarFile) {
         const formDataUpload = new FormData();
         Object.entries(updatePayload).forEach(([key, value]) => {
           formDataUpload.append(key, value);
         });
         formDataUpload.append('avatar', avatarFile);
-        updatedUser = await api.updateUser(user.id, formDataUpload);
+        return await api.updateUser(user.id, formDataUpload);
       } else {
-        updatedUser = await api.updateUser(user.id, {
+        return await api.updateUser(user.id, {
           ...updatePayload,
           avatar: avatar
         });
       }
-      
-      updateUser(updatedUser);
+    },
+    onSuccess: (updatedUser: UserType) => {
+      updateUser(updatedUser); // Update state context globally
       setNotification({ type: 'success', message: 'Kitchen profile updated successfully!' });
-    } catch (error: any) {
+      queryClient.invalidateQueries({ queryKey: ['auth_user_context'] }); // Target key you use for current user validation
+      setAvatarFile(null); // Wipe temporary cache selection references
+    },
+    onError: (error: any) => {
       console.error('Profile update failed:', error);
       setNotification({ type: 'error', message: error.message || 'Failed to update profile.' });
-    } finally {
-      setIsSaving(false);
+    },
+    onSettled: () => {
       setTimeout(() => setNotification(null), 5000);
     }
+  });
+
+  if (!user) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-20 text-center bg-stone-50 min-h-screen">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+          <UserIcon size={64} className="mx-auto text-stone-200 mb-6" />
+          <p className="text-stone-500 font-serif text-xl italic mb-8">Please sign in to view your kitchen profile.</p>
+          <button 
+            onClick={() => window.location.href = '/login'} 
+            className="bg-stone-900 text-white px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-xs cursor-pointer"
+          >
+            Sign In
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  const handleSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    runProfileUpdate();
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,7 +124,7 @@ export function Profile() {
             initial={{ opacity: 0, y: -20, x: "-50%" }}
             animate={{ opacity: 1, y: 0, x: "-50%" }}
             exit={{ opacity: 0, scale: 0.95, x: "-50%" }}
-            className={`fixed top-24 left-1/2 z-50 px-8 py-4 rounded-[2rem] shadow-2xl font-bold text-sm flex items-center gap-4 ${
+            className={`fixed top-24 left-1/2 z-50 px-8 py-4 rounded-4xl shadow-2xl font-bold text-sm flex items-center gap-4 ${
               notification.type === 'success' ? 'bg-[#1a382d] text-white border border-white/10' : 'bg-red-500 text-white'
             }`}
           >
@@ -300,16 +317,16 @@ export function Profile() {
                 <div className="space-y-6">
                   <div className="flex justify-between items-center border-b border-stone-50 pb-4">
                     <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Recipes Shared</span>
-                    <span className="font-serif font-bold text-xl text-primary">{stats?.totalRecipes || 0}</span>
+                    <span className="font-serif font-bold text-xl text-primary">{stats?.total_recipes || 0}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-stone-50 pb-4">
                     <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Kitchen Friends</span>
-                    <span className="font-serif font-bold text-xl text-primary">{stats?.totalSubscribers || 0}</span>
+                    <span className="font-serif font-bold text-xl text-primary">{stats?.total_subscribers || 0}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Total Views</span>
                     <span className="font-serif font-bold text-xl text-primary">
-                      {stats ? (stats.totalViews > 1000 ? (stats.totalViews / 1000).toFixed(1) + 'k' : stats.totalViews.toString()) : '0'}
+                      {stats ? (stats.total_views > 1000 ? (stats.total_views / 1000).toFixed(1) + 'k' : stats.total_views.toString()) : '0'}
                     </span>
                   </div>
                 </div>

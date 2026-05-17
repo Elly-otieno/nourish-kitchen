@@ -53,7 +53,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             {user ? (
               <img 
-                src={user.avatar} 
+                src={user.avatar || ''} 
                 alt="Profile" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"

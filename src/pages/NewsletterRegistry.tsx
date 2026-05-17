@@ -2,51 +2,57 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Users, Send, Search, CheckCircle, ExternalLink, Shield, X } from 'lucide-react';
 import { api } from '../services/api';
+import { useQuery, useMutation } from '@tanstack/react-query';
 
 export function NewsletterRegistry() {
-  const [subscribers, setSubscribers] = useState<{ email: string; date: string }[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [isSending, setIsSending] = useState(false);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const loadData = async () => {
-    try {
-      const data = await api.getNewsletterSubscribers();
-      setSubscribers(data);
-    } catch (error) {
-      console.error('Failed to load subscribers:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch Subscriber Directory List
+  const { 
+    data: subscribers = [], 
+    isLoading: loading, 
+    error: loadError 
+  } = useQuery({
+    queryKey: ['newsletterSubscribers'],
+    queryFn: api.getNewsletterSubscribers,
+    staleTime: 30000, // Keeps the subscriber count cached for 30 seconds
+  });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSending(true);
-    try {
-      const result = await api.sendNewsletter(subject, content);
-      setSuccessMessage(`Successfully sent to ${result.count} subscribers!`);
+  // Handle Newsletter Broadcast Campaign Mutation
+  const { 
+    mutate: executeSendCampaign, 
+    isPending: isSending 
+  } = useMutation({
+    mutationFn: (payload: { subject: string; content: string }) => 
+      api.sendNewsletter(payload.subject, payload.content),
+    onSuccess: (result) => {
+      setSuccessMessage(`Successfully sent to ${result?.count || 0} subscribers!`);
       setSubject('');
       setContent('');
+      
+      // Auto-dismiss notification overlay
       setTimeout(() => {
         setSuccessMessage('');
         setShowCampaignForm(false);
       }, 3000);
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Send failed:', error);
-    } finally {
-      setIsSending(false);
     }
+  });
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject.trim() || !content.trim()) return;
+    
+    executeSendCampaign({ subject, content });
   };
 
+  // Perform client-side data matching filters seamlessly over cached queries
   const filteredSubscribers = subscribers.filter(s => 
     s.email.toLowerCase().includes(search.toLowerCase())
   );
@@ -78,21 +84,21 @@ export function NewsletterRegistry() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-        <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm">
+        <div className="bg-white p-8 rounded-4xl border border-stone-100 shadow-sm">
           <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 mb-6 font-serif">
             <Users size={24} />
           </div>
           <h3 className="text-stone-400 text-[10px] font-black uppercase tracking-widest mb-1">Total Reach</h3>
           <p className="text-4xl font-serif font-bold text-stone-900">{subscribers.length}</p>
         </div>
-        <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm">
+        <div className="bg-white p-8 rounded-4xl border border-stone-100 shadow-sm">
           <div className="w-12 h-12 bg-stone-50 rounded-2xl flex items-center justify-center text-stone-400 mb-6 font-serif">
             <Mail size={24} />
           </div>
           <h3 className="text-stone-400 text-[10px] font-black uppercase tracking-widest mb-1">Campaigns Sent</h3>
           <p className="text-4xl font-serif font-bold text-stone-900">12</p>
         </div>
-        <div className="bg-white p-8 rounded-[2rem] border border-stone-100 shadow-sm">
+        <div className="bg-white p-8 rounded-4xl border border-stone-100 shadow-sm">
           <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 font-serif">
             <Shield size={24} />
           </div>
@@ -161,7 +167,7 @@ export function NewsletterRegistry() {
       {/* Campaign Modal */}
       <AnimatePresence>
         {showCampaignForm && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-stone-900/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-100 flex items-center justify-center p-6 bg-stone-900/60 backdrop-blur-sm">
             <motion.div 
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}

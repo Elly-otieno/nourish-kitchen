@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
+import uuid
 
 class UserRole(models.TextChoices):
     ADMIN = 'ADMIN', 'Admin'
@@ -9,7 +10,7 @@ class UserRole(models.TextChoices):
 
 class User(AbstractUser):
     role = models.CharField(max_length=10, choices=UserRole.choices, default=UserRole.USER)
-    avatar = models.URLField(max_length=500, blank=True, null=True)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     joined_at = models.DateTimeField(auto_now_add=True)
     last_seen = models.DateTimeField(blank=True, null=True)
@@ -140,3 +141,14 @@ class BlogArchive(BlogPost):
         proxy = True  # Doesn't create a new table in DB
         verbose_name = "Archived Blogs"
         verbose_name_plural = "Archive: Blogs"
+
+class Invitation(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='invitation')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_valid(self):
+        # Tokens expire after 48 hours
+        expiry_limit = self.created_at + timezone.timedelta(hours=48)
+        return timezone.now() < expiry_limit and not self.is_used

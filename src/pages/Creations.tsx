@@ -27,9 +27,9 @@ export function Creations() {
           api.getBlogs()
         ]);
         
-        const authored = recipesData.filter(r => r.authorId === user.id);
-        const liked = recipesData.filter(r => r.likedBy?.includes(user.id));
-        const bookmarked = blogsData.filter(b => b.bookmarkedBy?.includes(user.id));
+        const authored = recipesData.filter(r => String(r.author) === user.id);
+        const liked = recipesData.filter(r => r.liked_by?.includes(Number(user.id)));
+        const bookmarked = blogsData.filter(b => b.bookmarked_by?.includes(Number(user.id)));
         
         setRecipes(authored);
         setLikedRecipes(liked);
@@ -49,10 +49,10 @@ export function Creations() {
     try {
       if (deleteConfirm.type === 'recipe') {
         await api.deleteRecipe(deleteConfirm.id);
-        setRecipes(prev => prev.filter(r => r.id !== deleteConfirm.id));
+        setRecipes(prev => prev.filter(r => String(r.id) !== deleteConfirm.id));
       } else {
         await api.deleteBlog(deleteConfirm.id);
-        setBookmarkedBlogs(prev => prev.filter(b => b.id !== deleteConfirm.id));
+        setBookmarkedBlogs(prev => prev.filter(b => String(b.id) !== deleteConfirm.id));
       }
       setDeleteConfirm(null);
     } catch (error) {
@@ -142,7 +142,7 @@ export function Creations() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12">
         {loading ? (
           Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="aspect-[4/5] bg-stone-100 rounded-[40px] animate-pulse" />
+            <div key={i} className="aspect-4/5 bg-stone-100 rounded-[40px] animate-pulse" />
           ))
         ) : (
           <AnimatePresence mode="popLayout">
@@ -158,15 +158,15 @@ export function Creations() {
                 {activeTab === 'blogs' ? (
                   <div className="block group relative">
                     <Link to={`/blog/all/${item.id}`}>
-                      <div className="aspect-[4/3] rounded-[2.5rem] overflow-hidden mb-6 border border-stone-100 shadow-sm transition-all group-hover:shadow-xl">
-                        <img src={(item as BlogPost).heroImage} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                      <div className="aspect-4/3 rounded-[2.5rem] overflow-hidden mb-6 border border-stone-100 shadow-sm transition-all group-hover:shadow-xl">
+                        <img src={(item as BlogPost).hero_image} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                       </div>
                       <h3 className="font-serif text-xl font-bold text-stone-900 mb-2 group-hover:text-primary transition-colors">{(item as BlogPost).title}</h3>
                       <p className="text-stone-500 text-[10px] font-bold uppercase tracking-widest">{(item as BlogPost).category} · {(item as BlogPost).date}</p>
                     </Link>
                     {activeTab === 'blogs' && (
                       <button 
-                        onClick={() => setDeleteConfirm({ id: item.id, type: 'blog' })}
+                        onClick={() => setDeleteConfirm({ id: String(item.id), type: 'blog' })}
                         className="absolute top-4 right-4 p-2.5 rounded-full bg-white/90 backdrop-blur-md text-stone-300 hover:text-red-500 transition-all opacity-0 group-hover:opacity-100"
                       >
                         <Trash2 size={16} />
@@ -175,15 +175,15 @@ export function Creations() {
                   </div>
                 ) : (
                   <RecipeCard 
-                    id={item.id} 
-                    image={(item as Recipe).heroImage} 
+                    id={String(item.id)} 
+                    image={(item as Recipe).hero_image || ''} 
                     category={(item as Recipe).categories[0]} 
                     title={item.title} 
-                    time={(item as Recipe).prepTime} 
+                    time={(item as Recipe).prep_time} 
                     rating={(item as Recipe).rating} 
-                    likedBy={(item as Recipe).likedBy}
+                    likedBy={(item as Recipe).liked_by?.map(id => String(id)) || []}
                     showAdminActions={activeTab === 'authored' || user?.role === 'ADMIN'}
-                    onDelete={() => setDeleteConfirm({ id: item.id, type: 'recipe' })}
+                    onDelete={() => setDeleteConfirm({ id: String(item.id), type: 'recipe' })}
                   />
                 )}
               </motion.div>

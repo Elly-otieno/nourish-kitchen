@@ -38,8 +38,8 @@ export function RecipeCard({ id, image, category, title, time, rating, likedBy =
 
     setIsLiking(true);
     try {
-      const updated = await api.toggleLikeRecipe(id, user.id);
-      setInternalLikedBy(updated.likedBy || []);
+      const updated = await api.toggleLikeRecipe(id);
+      setInternalLikedBy(updated.liked);
     } catch (error) {
       console.error('Failed to toggle like:', error);
     } finally {

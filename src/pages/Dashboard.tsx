@@ -1,49 +1,51 @@
 import { Pencil, BookOpen, Eye, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { StatsCard } from '../components/StatsCard';
 import { RecipeCard } from '../components/RecipeCard';
 import { api } from '../services/api';
 import { KitchenStats, Recipe, Comment } from '../types';
 
 export function Dashboard() {
-  const [stats, setStats] = useState<KitchenStats | null>(null);
-  const [latestRecipes, setLatestRecipes] = useState<Recipe[]>([]);
-  const [latestComments, setLatestComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Kitchen Metrics Query
+  const { data: stats, isLoading: isStatsLoading } = useQuery<KitchenStats, Error>({
+    queryKey: ['kitchen-stats'],
+    queryFn: () => api.getStats(),
+    refetchInterval: 30000, // Automatic background syncing every 30s
+  });
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      try {
-        const [statsData, recipesData, commentsData] = await Promise.all([
-          api.getStats(),
-          api.getRecipes(),
-          api.getComments()
-        ]);
-        setStats(statsData);
-        setLatestRecipes(recipesData.slice(0, 2));
-        setLatestComments(commentsData.slice(0, 3));
-      } catch (error) {
-        console.error('Failed to load dashboard data:', error);
-      } finally {
-        setLoading(false);
+  // Latest Recipes Query (Slices top 2 via select data transformer)
+  const { data: latestRecipes = [], isLoading: isRecipesLoading } = useQuery<Recipe[], Error, Recipe[]>({
+    queryKey: ['recipes', 'latest'],
+    queryFn: () => api.getRecipes(),
+    select: (recipes) => (Array.isArray(recipes) ? recipes.slice(0, 2) : []),
+    refetchInterval: 30000,
+  });
+
+  // Global Feedback Pipeline (Slices top 3 via select data transformer)
+  const { data: latestComments = [], isLoading: isCommentsLoading } = useQuery<Comment[], Error, Comment[]>({
+    queryKey: ['comments', 'latest'],
+    queryFn: () => api.getAllComments(),
+    select: (comments) => {
+      if (Array.isArray(comments)) return comments.slice(0, 3);
+      if (comments && typeof comments === 'object' && Array.isArray((comments as any).results)) {
+        return (comments as any).results.slice(0, 3);
       }
-    }
-    
-    loadDashboardData();
-    
-    // Refresh data every 30 seconds for "real-time" feel
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+      return [];
+    },
+    refetchInterval: 30000,
+  });
+
+  // Combined tracking state matching your initial implementation
+  const loading = isStatsLoading || isRecipesLoading || isCommentsLoading;
 
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-4 md:px-12 py-20">
         <div className="animate-pulse space-y-12">
           <div className="h-16 w-1/3 bg-stone-100 rounded-2xl" />
-          <div className="grid grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="h-40 bg-stone-100 rounded-3xl" />
             <div className="h-40 bg-stone-100 rounded-3xl" />
             <div className="h-40 bg-stone-100 rounded-3xl" />
@@ -91,22 +93,28 @@ export function Dashboard() {
         <StatsCard 
           icon={BookOpen} 
           label="Shared Recipes" 
-          value={stats?.totalBlogs.toString() || '0'} 
+          value={`${stats?.total_blogs ?? 0}`} 
           trend={`In your cookbook`} 
           delay={0.1}
         />
         <StatsCard 
           icon={Eye} 
           label="Hearty Readers" 
-          value={stats ? (stats.totalViews > 1000 ? (stats.totalViews / 1000).toFixed(1) + 'k' : stats.totalViews.toString()) : '0'} 
+          value={
+  stats?.total_views 
+    ? (stats.total_views > 1000 
+        ? (stats.total_views / 1000).toFixed(1) + 'k' 
+        : String(stats.total_views)) 
+    : '0'
+}
           trend="Joining the table" 
           delay={0.2}
         />
         <StatsCard 
           icon={MessageSquare} 
           label="Warm Feedback" 
-          value={stats?.totalComments.toString() || '0'} 
-          subtext={`${stats?.totalSubscribers || 0} Friends at the table`} 
+          value={`${stats?.total_comments ?? 0}`} 
+          subtext={`${stats?.total_subscribers || 0} Friends at the table`} 
           delay={0.3}
         />
       </section>
@@ -114,26 +122,29 @@ export function Dashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-8 md:gap-10">
         {/* Gallery Section */}
-        <section className="col-span-12 lg:col-span-8 bg-surface-container-lowest p-6 md:p-10 rounded-[1.5rem] md:rounded-[2.5rem] soft-shadow border border-surface-container">
+        <section className="col-span-12 lg:col-span-8 bg-surface-container-lowest p-6 md:p-10 rounded-3xl md:rounded-[2.5rem] soft-shadow border border-surface-container">
           <div className="flex justify-between items-center mb-8 md:mb-10">
             <h3 className="font-serif text-2xl md:text-4xl text-primary font-medium tracking-tight">Your Latest Creations</h3>
             <Link to="/recipes" className="text-primary font-bold text-xs md:text-sm hover:underline tracking-wider uppercase">View All</Link>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 md:gap-10">
-            {latestRecipes.map(recipe => (
+            {latestRecipes.map((recipe: Recipe) => (
               <RecipeCard 
                 key={recipe.id}
-                id={recipe.id}
-                image={recipe.heroImage}
-                category={recipe.categories[0]}
+                id={String(recipe.id)}
+                image={recipe.hero_image || 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&q=80'}
+                category={recipe.categories?.[0] || 'Uncategorized'}
                 title={recipe.title}
-                time={recipe.prepTime}
+                time={recipe.prep_time}
                 rating={recipe.rating}
-                likedBy={recipe.likedBy}
+                likedBy={recipe.liked_by?.map(id => String(id)) || []}
               />
             ))}
           </div>
+          {latestRecipes.length === 0 && (
+            <p className="text-stone-400 font-serif italic text-center py-12">No culinary recipes shared yet.</p>
+          )}
         </section>
 
         {/* Side Column */}
@@ -141,7 +152,7 @@ export function Dashboard() {
           {/* Kitchen Tips */}
           <motion.div 
             whileHover={{ y: -4 }}
-            className="bg-primary-container p-8 md:p-10 rounded-[1.5rem] md:rounded-[2rem] text-on-primary-container soft-shadow shadow-[#334f2b15]"
+            className="bg-primary-container p-8 md:p-10 rounded-3xl md:rounded-4xl text-on-primary-container soft-shadow shadow-[#334f2b15]"
           >
             <h3 className="font-serif text-2xl md:text-3xl mb-4 md:mb-6 leading-tight">Kitchen Tips</h3>
             <p className="font-sans text-sm md:text-base mb-6 md:mb-8 leading-relaxed opacity-90">
@@ -153,17 +164,17 @@ export function Dashboard() {
           </motion.div>
 
           {/* Community Love */}
-          <div className="bg-surface-container-lowest p-8 md:p-10 rounded-[1.5rem] md:rounded-[2rem] soft-shadow border border-surface-container flex-1">
+          <div className="bg-surface-container-lowest p-8 md:p-10 rounded-3xl md:rounded-4xl soft-shadow border border-surface-container flex-1">
             <h3 className="font-serif text-2xl md:text-3xl text-primary mb-6 md:mb-8 leading-tight">Community Love</h3>
             
             <div className="space-y-6 md:space-y-8">
-              {latestComments.map(comment => (
+              {latestComments.map((comment: Comment) => (
                 <CommentItem 
                   key={comment.id}
-                  name={comment.userName}
+                  name={comment.user_name}
                   comment={comment.content}
-                  time={comment.createdAt}
-                  avatar={comment.userAvatar}
+                  time={comment.created_at}
+                  avatar={comment.user_avatar}
                 />
               ))}
               {latestComments.length === 0 && (
@@ -188,11 +199,24 @@ export function Dashboard() {
   );
 }
 
-function CommentItem({ name, comment, time, avatar }: { name: string, comment: string, time: string, avatar: string, key?: any }) {
+interface CommentItemProps {
+  name: string;
+  comment: string;
+  time: string;
+  avatar: string;
+}
+
+function CommentItem({ name, comment, time, avatar }: CommentItemProps) {
   return (
     <div className="flex gap-4 group">
-      <div className="w-10 h-10 md:w-12 md:h-12 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-stone-50">
-        <img src={avatar} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+      <div className="w-10 h-10 md:w-12 md:h-12 rounded-full shrink-0 overflow-hidden ring-2 ring-stone-50">
+        {avatar ? (
+          <img src={avatar} alt={name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="w-full h-full bg-stone-100 flex items-center justify-center font-bold text-stone-500 text-xs">
+            {name.charAt(0)}
+          </div>
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <h5 className="font-sans text-sm font-bold text-on-background truncate">{name}</h5>
