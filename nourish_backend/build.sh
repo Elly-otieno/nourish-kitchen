@@ -2,17 +2,14 @@
 # exit on error
 set -o errexit
 
-# Install production dependencies
-pip install -r requirements.txt
-
-# Compile database schemas safely during the build phase
+# Run your database migrations safely
 python manage.py makemigrations
 python manage.py migrate
 
-# Collect static files for production styling assets
+# Collect your static web styling assets
 python manage.py collectstatic --no-input
 
-# Create a superuser automatically without user prompts
+# Generate your superuser account automatically if requested
 if [ "$CREATE_SUPERUSER" ]; then
   python manage.py shell -c "
 from django.contrib.auth import get_user_model;
