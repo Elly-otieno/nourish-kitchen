@@ -144,7 +144,7 @@ export function Landing() {
             initial={{ scale: 1.1, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 1.5, ease: [0.19, 1, 0.22, 1] }}
-            src="/src/assets/backgroung.jpeg"
+            src="/assets/backgroung.jpeg"
             alt="Artisanal Kitchen"
             className="w-full h-full object-cover"
           />

@@ -9,7 +9,7 @@ import {
   CommentReplyResponse,
 } from "../types";
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = "https://nourish-kitchen-backend.onrender.com/api";
 
 /**
  * Utility to manage headers and Auth tokens

@@ -32,7 +32,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <Menu size={20} className="text-stone-600" />
         </button>
         <Link to="/" className="hidden md:block">
-           <img src="/src/assets/logo.png" alt="Nourish" className="h-10 w-auto" />
+           <img src="/assets/logo.png" alt="Nourish" className="h-10 w-auto" />
         </Link>
         <span className="text-stone-400 font-serif text-[10px] md:text-sm truncate">Today is {today}</span>
       </div>

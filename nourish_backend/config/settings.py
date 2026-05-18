@@ -13,7 +13,9 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+
+ALLOWED_HOSTS = ['nourish-kitchen-backend.onrender.com', 'localhost', '127.0.0.1']
 
 ALLOWED_HOSTS = ['*']
 

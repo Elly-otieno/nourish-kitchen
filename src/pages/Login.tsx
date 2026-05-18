@@ -97,7 +97,7 @@ export function Login() {
                 transition={{ duration: 0.5 }}
                 className="inline-block mb-6"
               >
-                <img src="/src/assets/logo.png" alt="Nourish Kitchen" className="h-14 md:h-16 w-auto mx-auto lg:ml-0" />
+                <img src="/assets/logo.png" alt="Nourish Kitchen" className="h-14 md:h-16 w-auto mx-auto lg:ml-0" />
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}

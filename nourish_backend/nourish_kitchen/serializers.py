@@ -52,6 +52,13 @@ class RecipeSerializer(serializers.ModelSerializer):
        
         read_only_fields = ['id', 'author', 'created_at', 'updated_at', 'views', 'rating', 'liked_by']
 
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image:
+            # This generates a full 'https://your-backend.onrender.com/media/...' string
+            return request.build_absolute_uri(obj.image.url)
+        return None
+
     def to_internal_value(self, data):
         """
         Customizes how data is received. This is crucial for handling FormData,
@@ -136,6 +143,13 @@ class BlogPostSerializer(serializers.ModelSerializer):
             'bookmarked_by_count', 'is_deleted'
         ]
         read_only_fields = ['id', 'date']
+
+    def get_image(self, obj):
+        request = self.context.get('request')
+        if obj.image:
+            # This generates a full 'https://your-backend.onrender.com/media/...' string
+            return request.build_absolute_uri(obj.image.url)
+        return None
 
 class CommentSerializer(serializers.ModelSerializer):
     class Meta:

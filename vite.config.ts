@@ -8,8 +8,9 @@ export default defineVitestConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
+    base: '/',
     define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      'process.env.API_KEY': JSON.stringify(env.API_KEY),
     },
     resolve: {
       alias: {
@@ -22,7 +23,7 @@ export default defineVitestConfig(({ mode }) => {
       setupFiles: './src/test/setup.ts',
     },
     server: {
-      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      // Do not modifyâfile watching is disabled to prevent flickering during edits.
       hmr: process.env.DISABLE_HMR !== 'true',
     },
   };

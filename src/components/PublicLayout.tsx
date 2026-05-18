@@ -90,7 +90,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
       >
         <div className={`max-w-7xl mx-auto transition-all duration-500 flex items-center justify-between ${
           showSolidHeader 
-            ? 'bg-white/70 backdrop-blur-xl border border-stone-100 rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-6 md:px-10 h-16 md:h-20' 
+            ? 'bg-white/70 backdrop-blur-xl border border-stone-100 rounded-4xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-6 md:px-10 h-16 md:h-20' 
             : 'bg-transparent px-6 md:px-12 h-20 md:h-28'
         }`}>
           <button 
@@ -101,7 +101,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           </button>
 
           <Link to="/" className="flex items-center gap-3 group shrink-0">
-            <img src="/src/assets/logo.png" alt="Nourish Kitchen" className="h-12 md:h-16 w-auto" />
+            <img src="/assets/logo.png" alt="Nourish Kitchen" className="h-12 md:h-16 w-auto" />
           </Link>
 
           <nav className="hidden lg:flex items-center gap-6 xl:gap-10">
@@ -192,7 +192,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
                 className="w-10 h-10 rounded-2xl bg-stone-50 flex items-center justify-center text-stone-400 hover:bg-emerald-50 hover:text-emerald-600 transition-all overflow-hidden border border-stone-100"
               >
                 {user ? (
-                  <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                  <img src={user.avatar || ''} alt={user.username} className="w-full h-full object-cover" />
                 ) : (
                   <User size={20} strokeWidth={1.5} />
                 )}
@@ -288,7 +288,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-white p-6 md:p-20"
+            className="fixed inset-0 z-100 bg-white p-6 md:p-20"
           >
             <div className="max-w-4xl mx-auto">
               <div className="flex justify-between items-center mb-12">
@@ -339,17 +339,17 @@ export function PublicLayout({ children }: PublicLayoutProps) {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-[60]" 
+              className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-60" 
             />
             <motion.div 
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
-              className="fixed inset-y-0 left-0 w-80 bg-white z-[70] p-8 flex flex-col"
+              className="fixed inset-y-0 left-0 w-80 bg-white z-70 p-8 flex flex-col"
             >
               <div className="flex justify-between items-center mb-12">
                  <Link to="/" className="flex items-center gap-3" onClick={() => setIsMobileMenuOpen(false)}>
-                  <img src="/src/assets/logo.png" alt="Nourish Kitchen" className="h-10 w-auto" />
+                  <img src="/assets/logo.png" alt="Nourish Kitchen" className="h-10 w-auto" />
                 </Link>
                 <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-stone-400">
                   <X size={24} />
@@ -412,7 +412,7 @@ export function PublicLayout({ children }: PublicLayoutProps) {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 mb-20">
             <div className="lg:col-span-5 flex flex-col">
               <Link to="/" className="flex items-center gap-3 mb-8">
-                <img src="/src/assets/logo.png" alt="Nourish Kitchen" className="h-12 md:h-16 w-auto" />
+                <img src="/assets/logo.png" alt="Nourish Kitchen" className="h-12 md:h-16 w-auto" />
               </Link>
               <p className="text-stone-500 text-sm leading-relaxed mb-10 max-w-sm">
                 Sharing wholesome recipes and the stories behind them. From our kitchen to yours, with love and seasonal ingredients.

@@ -1,29 +1,40 @@
 import { Clock, Star, Heart, Trash2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../services/api';
 
 interface RecipeCardProps {
-  id: string;
+  id: number; // Matched to numeric database IDs
   image: string;
   category: string;
   title: string;
   time: string;
   rating: number;
-  likedBy?: string[];
+  initialIsLiked?: boolean; // Track if current user liked it initially
+  initialLikeCount?: number; // Track total count of likes
   showAdminActions?: boolean;
   onDelete?: () => void;
-  key?: any;
 }
 
-export function RecipeCard({ id, image, category, title, time, rating, likedBy = [], showAdminActions = false, onDelete }: RecipeCardProps) {
+export function RecipeCard({ 
+  id, 
+  image, 
+  category, 
+  title, 
+  time, 
+  rating, 
+  initialIsLiked = false, 
+  initialLikeCount = 0,
+  showAdminActions = false, 
+  onDelete 
+}: RecipeCardProps) {
   const { user } = useAuth();
-  const [internalLikedBy, setInternalLikedBy] = useState<string[]>(likedBy);
+  
+  const [isLiked, setIsLiked] = useState<boolean>(initialIsLiked);
+  const [likeCount, setLikeCount] = useState<number>(initialLikeCount);
   const [isLiking, setIsLiking] = useState(false);
-
-  const isLiked = user ? internalLikedBy.includes(user.id) : false;
 
   const toggleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -38,8 +49,10 @@ export function RecipeCard({ id, image, category, title, time, rating, likedBy =
 
     setIsLiking(true);
     try {
-      const updated = await api.toggleLikeRecipe(id);
-      setInternalLikedBy(updated.liked);
+      const updated = await api.toggleLikeRecipe(String(id));
+    
+      setIsLiked(updated.liked);
+      setLikeCount(prev => updated.liked ? prev + 1 : Math.max(0, prev - 1));
     } catch (error) {
       console.error('Failed to toggle like:', error);
     } finally {
@@ -77,6 +90,7 @@ export function RecipeCard({ id, image, category, title, time, rating, likedBy =
           </div>
 
           <button 
+            type="button"
             onClick={toggleLike}
             className={`absolute top-4 right-4 p-3.5 rounded-full backdrop-blur-md transition-all shadow-lg select-none active:scale-90 ${
               isLiked 
@@ -90,6 +104,7 @@ export function RecipeCard({ id, image, category, title, time, rating, likedBy =
 
           {showAdminActions && (
             <button 
+              type="button"
               onClick={handleDelete}
               className="absolute top-4 right-20 p-3.5 rounded-full bg-white/90 backdrop-blur-md text-stone-400 border border-stone-100 hover:text-red-500 transition-all shadow-lg select-none active:scale-90"
               aria-label="Archive recipe"
@@ -112,10 +127,10 @@ export function RecipeCard({ id, image, category, title, time, rating, likedBy =
             <Star size={16} className="text-stone-300 fill-stone-300" /> 
             {rating}
           </span>
-          {internalLikedBy.length > 0 && (
+          {likeCount > 0 && (
             <span className="flex items-center gap-1.5 ml-auto text-[10px] uppercase tracking-widest text-[#b58e3e]">
               <Heart size={12} className="fill-[#b58e3e]" />
-              {internalLikedBy.length} {internalLikedBy.length === 1 ? 'Chef' : 'Chefs'} loved this
+              {likeCount} {likeCount === 1 ? 'Chef' : 'Chefs'} loved this
             </span>
           )}
         </div>

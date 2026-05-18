@@ -58,7 +58,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       >
         <div className="h-20 flex items-center justify-between px-6 border-b border-stone-100">
           <div className="flex items-center gap-3">
-            <img src="/src/assets/logo.png" alt="Nourish" className={`${isCollapsed ? 'h-8' : 'h-12'} w-auto`} />
+            <img src="/assets/logo.png" alt="Nourish" className={`${isCollapsed ? 'h-8' : 'h-12'} w-auto`} />
           </div>
           <button 
             onClick={() => setIsCollapsed(!isCollapsed)} 
